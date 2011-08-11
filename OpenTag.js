@@ -93,6 +93,8 @@ q.html.fileLoader.tidyUrl = function (path) {
   }
   return "//" + path;
 };
+/*jslint evil: true */
+/*jslint evil: true */
 
 q.html.GlobalEval = {};
 
@@ -107,6 +109,7 @@ q.html.GlobalEval.globalEval = function (src) {
     fn();
   }
 };
+/*global escape, unescape*/
 
 q.html.HtmlInjector = {};
 
@@ -114,13 +117,11 @@ q.html.HtmlInjector.inject = function (el, injectStart, str, cb, parentNode) {
   if (str.toLowerCase().indexOf("<script") >= 0) {
     var i, ii, d, scriptsRaw, scripts, script, contents;
     d = document.createElement("div");
-    d.innerHTML = str;
+    d.innerHTML = str + "a";
     scriptsRaw = d.getElementsByTagName("script");
-    //Make copy of the raw array that is given by the browser, as the
-    //raw array changes as the dom changes.
     scripts = [];
     for (i = 0, ii = scriptsRaw.length; i < ii; i += 1) {
-      scripts.push(scriptsRaw[i]); 
+      scripts.push(scriptsRaw[i]);
     }
     contents = [];
     for (i = 0, ii = scripts.length; i < ii; i += 1) {
@@ -130,18 +131,53 @@ q.html.HtmlInjector.inject = function (el, injectStart, str, cb, parentNode) {
       } else {
         contents.push({script: script.innerHTML});
       }
-      //Note: this line changes the length of scriptsRaw.
       script.parentNode.removeChild(script);
     }
     if (d.innerHTML) {
-      el.innerHTML = injectStart ? (d.innerHTML + el.innerHTML) : 
-        (el.innerHTML + d.innerHTML);
+     if (d.innerHTML.length > 0) {
+        d.innerHTML = d.innerHTML.substring(0, d.innerHTML.length - 1);
+      }
     }
+    q.html.HtmlInjector.doInject(el, injectStart, d);
     q.html.HtmlInjector.loadScripts(contents, 0, cb, el);
-    //use document fragments if adding to multiple elements!
   } else {
-    el.innerHTML = injectStart ? (str + el.innerHTML) : (el.innerHTML + str);
-    cb();
+    d = document.createElement("div");
+    d.innerHTML = str;
+    q.html.HtmlInjector.doInject(el, injectStart, d);
+    if (cb) {
+      cb();
+    }
+  }
+};
+
+q.html.HtmlInjector.doInject = function (el, injectStart, d) {
+  if (d.childNodes.length > 0) {
+    var fragment = document.createDocumentFragment();
+    while(d.childNodes.length > 0) {
+      fragment.appendChild(d.removeChild(d.childNodes[0]));
+    }
+    if (injectStart) {
+      q.html.HtmlInjector.injectAtStart(el, fragment);
+    } else {
+      q.html.HtmlInjector.injectAtEnd(el, fragment);
+    }
+  }
+};
+q.html.HtmlInjector.injectAtStart = function (el, fragment) {
+  if (el.childNodes.length === 0) {
+    el.appendChild(fragment);
+  } else {
+    el.insertBefore(fragment, el.childNodes[0]);
+  }
+
+};
+q.html.HtmlInjector.injectAtEnd = function (el, fragment) {
+  if ((el === document.body) && (document.readyState !== "complete")) {
+    setTimeout(function () {
+      q.html.HtmlInjector.injectAtEnd(el, fragment);
+    }, 100);
+  } else {
+    el.appendChild(fragment);
   }
 };
 q.html.HtmlInjector.loadScripts = function (contents, i, cb, parentNode) {
@@ -175,7 +211,7 @@ var urlFilters = [{
     patternType: "1", //Matches QTag.ALL/SUBSTRING/REGEX/EXACT_MATCH
     pattern: "*", //Pattern for pattern type.
     priority: 1,
-    scriptLoaderKeys: ["1"] //Matches keys in scriptLoader
+   scriptLoaderKeys: ["1"] //Matches keys in scriptLoader
   }],
   scriptLoaders = {
     "1": {
@@ -188,33 +224,16 @@ var urlFilters = [{
       locationId: 1, //1 = HEAD, 2 = BODY, 3 = DIV
       positionId: 1, //1 = BEGINNING, 2 = HEAD
       locationDetail: "", //If specified 3 for locationId, then the id of the DIV to put the code in
-      async: "" //If a url, whether the script element should be loaded asynchronously
+      async: "", //If a url, whether the script element should be loaded asynchronously
+      usesDocWrite: false //If the loaded code uses document.write
     }
   };
 
 
 function QTag(urlFilters, scriptLoaders) {
-  var i, ii, qTagLoader;
-
   QTag.qTagLoaders = QTag.getLoaders(urlFilters, scriptLoaders, document.URL);
   QTag.loadersFinished = 0;
-
-  for (i = 0, ii = QTag.qTagLoaders.length; i < ii; i += 1) {
-    qTagLoader = QTag.qTagLoaders[i];
-    if (qTagLoader.url) {
-      q.html.fileLoader.load(
-        qTagLoader.url,
-        QTag.getTimerStarter(qTagLoader),
-        QTag.getTimerEnder(qTagLoader),
-        qTagLoader.parentNode,
-        qTagLoader.async
-      );
-    } else if (qTagLoader.html) {
-      QTag.waitCounts[qTagLoader.id] = 0;
-      QTag.injectHtml(qTagLoader);
-    }
-
-  }
+  QTag.loadLoaders();
 }
 
 QTag.ALL = "1";
@@ -303,38 +322,117 @@ QTag.updateLoaders = function (urlFilter, loaderKeysSet) {
 };
 
 QTag.waitCounts = {};
-QTag.injectHtml = function (qTagLoader) {
-  var el;
+QTag.maxLoads = 10;
+QTag.loadCheckInterval = 500;
 
-  if (QTag.waitCounts[qTagLoader.id] < 10) {
-    if (qTagLoader.locationId === 1) {
-      el = document.getElementsByTagName("head")[0];
-    }
-    if (qTagLoader.locationId === 2) {
-      el = document.body;
-    }
-    if (qTagLoader.locationId === 3) {
-      el = document.getElementById(qTagLoader.locationDetail);
-    }
-    if (el) {
-      QTag.getTimerStarter(qTagLoader)();
-      q.html.HtmlInjector.inject(el, qTagLoader.positionId === 1,
-        qTagLoader.html, QTag.getTimerEnder(qTagLoader));
+QTag.loadLoaders = function () {
+  var i, ii, qTagLoader;
+  QTag.docWriteUsers = [];
+
+  for (i = 0, ii = QTag.qTagLoaders.length; i < ii; i += 1) {
+    qTagLoader = QTag.qTagLoaders[i];
+    if (qTagLoader.usesDocWrite) {
+      QTag.docWriteUsers.push(qTagLoader);
     } else {
+      QTag.doWhenReady(qTagLoader, QTag.loadTagLoader);
+    }
+  }
+  QTag.loadLoadersSequentially();
+};
+
+QTag.doWhenReady = function (qTagLoader, f, timeoutHandler) {
+  QTag.waitCounts[qTagLoader.id] = 0;
+  QTag._doWhenReady(qTagLoader, f, timeoutHandler);
+};
+QTag._doWhenReady = function (qTagLoader, f, timeoutHandler) {
+  if (QTag.canLoad(qTagLoader)) {
+    f(qTagLoader);
+  } else {
+    if (QTag.waitCounts[qTagLoader.id] < QTag.maxLoads) {
       QTag.waitCounts[qTagLoader.id] += 1;
       setTimeout(function () {
-        QTag.injectHtml(qTagLoader);
-      }, 500);
+        QTag._doWhenReady(qTagLoader, f, timeoutHandler);
+      }, QTag.loadCheckInterval);
+    } else {
+      timeoutHandler(qTagLoader);
     }
   }
 };
-
+QTag.canLoad = function (qTagLoader) {
+  if (qTagLoader.locationId === 2) {
+    return !!document.body;
+  } else if (qTagLoader.locationId === 3) {
+    return !!document.getElementById(qTagLoader.locationDetail);
+  }
+  return true;
+};
+QTag.loadLoadersSequentially = function () {
+  var qTagLoader, finishHandler;
+  if (QTag.docWriteUsers.length > 0) {
+    qTagLoader = QTag.docWriteUsers[0];
+    QTag.docWriteUsers.shift();
+    QTag.doWhenReady(qTagLoader, QTag.loadLoaderSequentially, function () {
+      QTag.loadLoadersSequentially();
+    });
+  }
+};
+QTag.loadLoaderSequentially = function (qTagLoader) {
+  var text = [];
+  document.write = function (t) {
+    text.push(t);
+  };
+  document.writeln = function (t) {
+    text.push(t);
+  };
+  finishHandler = function () {
+    var el = QTag.getLocation(qTagLoader);
+    q.html.HtmlInjector.inject(el, qTagLoader.positionId === 1,
+        text.join("\n"), QTag.loadLoadersSequentially);
+  };
+  qTagLoader.finishHandler = finishHandler;
+  QTag.loadTagLoader(qTagLoader);
+};
+QTag.loadTagLoader = function (qTagLoader) {
+  if (qTagLoader.url) {
+    q.html.fileLoader.load(
+      qTagLoader.url,
+      QTag.getTimerStarter(qTagLoader),
+      QTag.getTimerEnder(qTagLoader),
+      qTagLoader.parentNode,
+      qTagLoader.async
+    );
+  } else if (qTagLoader.html) {
+    QTag.injectHtml(qTagLoader);
+  }
+};
+QTag.injectHtml = function (qTagLoader) {
+  var el = QTag.getLocation(qTagLoader);
+  QTag.getTimerStarter(qTagLoader)();
+  q.html.HtmlInjector.inject(el, qTagLoader.positionId === 1,
+      qTagLoader.html, QTag.getTimerEnder(qTagLoader));
+};
+QTag.getLocation = function (qTagLoader) {
+  var el;
+  if (qTagLoader.locationId === 1) {
+    el = document.getElementsByTagName("head")[0];
+  } else if (qTagLoader.locationId === 2) {
+    el = document.body;
+  } else if (qTagLoader.locationId === 3) {
+    el = document.getElementById(qTagLoader.locationDetail);
+  } else {
+    el = document.body;
+  }
+  return el;
+};
 
 QTag.getTimerStarter = function (qTagLoader) {
   return QTag.createStatementEvaluator(qTagLoader.pre);
 };
 QTag.getTimerEnder = function (qTagLoader) {
   return function (url, error) {
+    if (qTagLoader.finishHandler) {
+      qTagLoader.finishHandler();
+    }
     return QTag.createStatementEvaluator(qTagLoader.post)();
   };
 };
