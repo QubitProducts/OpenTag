@@ -35,7 +35,7 @@ first product.
 ## Licensing
 QuBit OpenTag is freely available to anyone under LGPL License.
 
-If you make changes to it, we strongly encourage you to submit a pull request so everyone using OpenTag can benefit form it.
+If you make changes to it, we strongly encourage you to submit a pull request so everyone using OpenTag can benefit from it.
 
 If you find issues with it, please report them via the [Issues Tab](https://github.com/QubitProducts/OpenTag/issues).
 
