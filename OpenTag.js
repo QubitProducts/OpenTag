@@ -1,3 +1,8 @@
+/*jslint evil: true, browser: true, white: true, onevar: true, undef: true,
+  newcap: true, nomen: false, regexp: true, plusplus: true, bitwise: true,
+  maxerr: 5, maxlen: 80, indent: 2 */
+/*global window */
+
 var q = {};
 
 q.html = {};
@@ -76,7 +81,7 @@ q.html.fileLoader.createScriptEl = function (path, async, forceReload) {
     scriptEl.defer = "true";
   } else {
     scriptEl.async = "false";
-    if (scriptEl !== false) {
+    if (scriptEl.async !== false) {
       scriptEl.async = false;
     }
     scriptEl.defer = "false";
@@ -114,10 +119,10 @@ q.html.GlobalEval.globalEval = function (src) {
 q.html.HtmlInjector = {};
 
 q.html.HtmlInjector.inject = function (el, injectStart, str, cb, parentNode) {
+  var i, ii, d, scriptsRaw, scripts, script, contents;
   if (str.toLowerCase().indexOf("<script") >= 0) {
-    var i, ii, d, scriptsRaw, scripts, script, contents;
     d = document.createElement("div");
-    d.innerHTML = str + "a";
+    d.innerHTML = "a" + str;
     scriptsRaw = d.getElementsByTagName("script");
     scripts = [];
     for (i = 0, ii = scriptsRaw.length; i < ii; i += 1) {
@@ -134,8 +139,8 @@ q.html.HtmlInjector.inject = function (el, injectStart, str, cb, parentNode) {
       script.parentNode.removeChild(script);
     }
     if (d.innerHTML) {
-     if (d.innerHTML.length > 0) {
-        d.innerHTML = d.innerHTML.substring(0, d.innerHTML.length - 1);
+      if (d.innerHTML.length > 0) {
+        d.innerHTML = d.innerHTML.substring(1);
       }
     }
     q.html.HtmlInjector.doInject(el, injectStart, d);
@@ -153,7 +158,7 @@ q.html.HtmlInjector.inject = function (el, injectStart, str, cb, parentNode) {
 q.html.HtmlInjector.doInject = function (el, injectStart, d) {
   if (d.childNodes.length > 0) {
     var fragment = document.createDocumentFragment();
-    while(d.childNodes.length > 0) {
+    while (d.childNodes.length > 0) {
       fragment.appendChild(d.removeChild(d.childNodes[0]));
     }
     if (injectStart) {
@@ -171,10 +176,15 @@ q.html.HtmlInjector.injectAtStart = function (el, fragment) {
   }
 
 };
-q.html.HtmlInjector.injectAtEnd = function (el, fragment) {
-  if ((el === document.body) && (document.readyState !== "complete")) {
+q.html.HtmlInjector.injectAtEnd = function (el, fragment, counter) {
+  if (!counter) {
+    counter = 1;
+  }
+  if ((el === document.body) &&
+      (document.readyState !== "complete") &&
+      (counter < 50)) {
     setTimeout(function () {
-      q.html.HtmlInjector.injectAtEnd(el, fragment);
+      q.html.HtmlInjector.injectAtEnd(el, fragment, counter + 1);
     }, 100);
   } else {
     el.appendChild(fragment);
@@ -188,8 +198,9 @@ q.html.HtmlInjector.loadScripts = function (contents, i, cb, parentNode) {
       q.html.fileLoader.load(
         c.src,
         null,
-        q.html.HtmlInjector.loadScripts.apply(this,
-          [contents, i + 1, cb, parentNode]),
+        function () {
+          q.html.HtmlInjector.loadScripts(contents, i + 1, cb, parentNode);
+        },
         parentNode
       );
       break;
@@ -201,10 +212,6 @@ q.html.HtmlInjector.loadScripts = function (contents, i, cb, parentNode) {
     cb();
   }
 };
-
-//Url filters is a number of url filters which are matched in order of priority. 1 is the highest priority.
-//If a url filter matches, then if it is an include filterType, add the scripts in script loaders to the scripts that will be loaded.
-//If it in an exclude filterType, then remove any scripts from the list of scripts that are to be lodded, through a lower priority.
 
 var urlFilters = [{
     filterType: "1", //Matches QTag.FILTER_TYPE_INCLUDE/EXCLUDE
@@ -229,6 +236,7 @@ var urlFilters = [{
     }
   };
 
+/*INSERT_DATA*/
 
 function QTag(urlFilters, scriptLoaders) {
   QTag.qTagLoaders = QTag.getLoaders(urlFilters, scriptLoaders, document.URL);
@@ -326,15 +334,27 @@ QTag.maxLoads = 10;
 QTag.loadCheckInterval = 500;
 
 QTag.loadLoaders = function () {
-  var i, ii, qTagLoader;
+  var i, ii, qTagLoader, err;
   QTag.docWriteUsers = [];
 
   for (i = 0, ii = QTag.qTagLoaders.length; i < ii; i += 1) {
     qTagLoader = QTag.qTagLoaders[i];
-    if (qTagLoader.usesDocWrite) {
-      QTag.docWriteUsers.push(qTagLoader);
-    } else {
-      QTag.doWhenReady(qTagLoader, QTag.loadTagLoader);
+    try {
+      if (qTagLoader.usesDocWrite) {
+        QTag.docWriteUsers.push(qTagLoader);
+      } else {
+        QTag.doWhenReady(qTagLoader, QTag.loadTagLoader, function () {
+
+        });
+      }
+    } catch (e) {
+      err = {
+        reason: "error parsing loader, " + qTagLoader.id + ": " + e.reason,
+        url: document.location.href
+      };
+      if (window.debug) {
+        console.log(err);
+      }
     }
   }
   QTag.loadLoadersSequentially();
@@ -393,16 +413,21 @@ QTag.loadLoaderSequentially = function (qTagLoader) {
   QTag.loadTagLoader(qTagLoader);
 };
 QTag.loadTagLoader = function (qTagLoader) {
-  if (qTagLoader.url) {
-    q.html.fileLoader.load(
-      qTagLoader.url,
-      QTag.getTimerStarter(qTagLoader),
-      QTag.getTimerEnder(qTagLoader),
-      qTagLoader.parentNode,
-      qTagLoader.async
-    );
-  } else if (qTagLoader.html) {
-    QTag.injectHtml(qTagLoader);
+  var ender = QTag.getTimerEnder(qTagLoader);
+  try {
+    if (qTagLoader.url) {
+      q.html.fileLoader.load(
+        qTagLoader.url,
+        QTag.getTimerStarter(qTagLoader),
+        ender,
+        qTagLoader.parentNode,
+        qTagLoader.async
+      );
+    } else if (qTagLoader.html) {
+      QTag.injectHtml(qTagLoader);
+    }
+  } catch (e) {
+    ender(null, e);
   }
 };
 QTag.injectHtml = function (qTagLoader) {
