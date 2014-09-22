@@ -35,11 +35,14 @@ first product.
 
 ## Examples and Documentation
 
-Opentag API follows well known OO JavaScript standards. To create a tag, an instance must be created with minimal configuration options (minimal configuration is an empty object). However, it is recommended to name tags:
+
+Opentag API follows well known OO JavaScript standards. To create a tag, an instance must be created with minimal configuration options. Although a minimal configuration is an empty object - it is recommended to name all tags:
 
 ```javascript
 	var aTag = new qubit.opentag.BaseTag({"name": "My tag name"});
 ```
+
+(to test this code open [blank Opentag API page](https://opentag2.qubitproducts.com/tagsdk/))
 
 Once tag instance is created, it can be run:
 
