@@ -42,7 +42,7 @@ Opentag API follows well known OO JavaScript standards. To create a tag, an inst
 	var aTag = new qubit.opentag.BaseTag({"name": "My tag name"});
 ```
 
-(to test this code open [blank Opentag API page](https://opentag2.qubitproducts.com/tagsdk/))
+(to test this code open [blank Opentag API page](https://opentag2.qubitproducts.com/tagsdk/) and open console)
 
 Once tag instance is created, it can be run:
 
