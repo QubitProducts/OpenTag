@@ -33,21 +33,21 @@ open to new ideas!
 engineers and become recognized as contributing towards our
 first product.
 
-## Example and Documentation
+## Examples and Documentation
 
-Opentag API keeps well known OO standards used with JavaScript. To create a tag an instance must be created with minimal configuration options (minimal configuration is an empty object), however, it is recommended to name tags:
+Opentag API follows well known OO JavaScript standards. To create a tag, an instance must be created with minimal configuration options (minimal configuration is an empty object). However, it is recommended to name tags:
 
 ```javascript
 	var aTag = new qubit.opentag.BaseTag({"name": "My tag name"});
 ```
 
-Once tag instance is created, tag can be run:
+Once tag instance is created, it can be run:
 
 ```javascript
 	aTag.run();
 ```
 
-This empty tag, however, does not trigger anything. Let us have a tag that will load jQuery library and alerts jQuery presence:
+Empty tag, however, does not trigger anything. Let us have a tag that will load jQuery library and alerts jQuery presence:
 
 ```javascript
 	var aTag = new qubit.opentag.BaseTag({
