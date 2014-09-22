@@ -3,7 +3,7 @@
 ## Welcome to the Qubit Opentag wiki!
 
 ## Simple package
-* **Easy to use**: Qubit Opentag JavaScript library has been initially developed by [Qubit](http://www.qubitproducts.com) to help and simplify JavaScript serving for web sites. Especially with the ever growing number of online tools, today?s developers and marketeers face a new challenge of managing and deploying various number of tags on their websites.
+* **Easy to use**: Qubit Opentag JavaScript library has been initially developed by [Qubit](http://www.qubitproducts.com) to help and simplify JavaScript serving for web sites. Especially with the ever growing number of online tools, today's developers and marketeers face a new challenge of managing and deploying various number of tags on their websites.
 * **Optimum Design**: After using this technology successfully on many high traffic sites, [Qubit Team](http://www.qubitgroup.com) has decided to open up their Javascript and allow anyone to write their own container tag service.
 
 ## Made for sharing
