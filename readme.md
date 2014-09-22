@@ -39,7 +39,7 @@ first product.
 Opentag API follows well known OO JavaScript standards. To create a tag, an instance must be created with minimal configuration options. Although a minimal configuration is an empty object - it is recommended to name all tags:
 
 ```javascript
-	var aTag = new qubit.opentag.BaseTag({"name": "My tag name"});
+	var aTag = new qubit.opentag.BaseTag({name: "My tag name"});
 ```
 
 (to test this code open [blank Opentag API page](https://opentag2.qubitproducts.com/tagsdk/) and open console)
@@ -54,9 +54,9 @@ Empty tag, however, does not trigger anything. Let us have a tag that will load 
 
 ```javascript
 	var aTag = new qubit.opentag.BaseTag({
-		"name": "My tag name",
+		name: "My tag name",
 		url: "http://code.jquery.com/jquery.js"
-		});
+	});
 
 	aTag.script = function() {
 		alert("JQuery is present: " + !!jQuery);
