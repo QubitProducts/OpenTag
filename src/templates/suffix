@@ -1,0 +1,7 @@
+}());} catch (e) {
+  try {
+    if (window.debug) {
+      console.log(e);
+    }
+  } catch (ex) {}
+}
