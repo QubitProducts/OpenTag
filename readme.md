@@ -79,7 +79,7 @@ Example above could be run with shorter code:
 	}).run();
 ```
 
-If you test this code in browser, in console, there will be detailed logging information. To review the logs and display finest details, simply run:
+If you test this code in a browser, in console, there will be detailed logging information. To review the logs and display finest details, simply run:
 
 ```javascript
 	aTag.log.rePrint(5);
