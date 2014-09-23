@@ -85,7 +85,7 @@ If you test this code in a browser, in console, there will be detailed logging i
 	aTag.log.rePrint(5);
 ```
 
-Tag API collects execution information for better debugginh process.
+Tag API collects execution information for better debugging experience.
 
 
 For more details, guides and API documentation please refer to Qubit pages.
