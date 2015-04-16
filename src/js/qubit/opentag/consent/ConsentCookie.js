@@ -1,4 +1,5 @@
-//:include qubit/opentag/Utils.js
+//:include qubit/Define.js
+
 /*NO CONSENT COOKIE*/
 
 /*
@@ -8,8 +9,8 @@
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
 
-(function(){
-  var Utils = qubit.opentag.Utils;
+(function () {
+
   //var log = new qubit.opentag.Log("ConsentCookie: ");
 
   /**
@@ -24,7 +25,7 @@
    * @param config {Object} config object used to build instance
    * @class qubit.opentag.consent.ConsentCookie
    */
-  function ConsentCookie (config) {
+  function ConsentCookie(config) {
     this.config = {
       /**
        * @cfg {ConsentCookie.MODES} [mode=ConsentCookie.MODES.notification]
@@ -62,7 +63,7 @@
     };
 
     if (config) {
-      for(var prop in config) {
+      for (var prop in config) {
         if (config.hasOwnProperty(prop)) {
           this.config[prop] = config[prop];
         }
@@ -70,7 +71,7 @@
     }
   }
 
-  Utils.clazz("qubit.opentag.consent.ConsentCookie", ConsentCookie);
+  qubit.Define.clazz("qubit.opentag.consent.ConsentCookie", ConsentCookie);
 
   /**
    * Modes.

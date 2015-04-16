@@ -1,4 +1,3 @@
-//:include GLOBAL.js
 //:include qubit/Define.js
 //:include qubit/compression/LZW.js
 
@@ -9,18 +8,18 @@
   var Umex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "*!-+()@{|}" + "\"]^_`~$&#";
   var mexMap = {};
   
-  for (var i = 0; i < mex.length; i++) {
-    mexMap[mex.charAt(i)] = i;
+  for (var c = 0; c < mex.length; c++) {
+    mexMap[mex.charAt(c)] = c;
   }
   
   var UmexMap = {};
-  for (var i = 0; i < mex.length; i++) {
-    UmexMap[Umex.charAt(i)] = i;
+  for (var ii = 0; ii < mex.length; ii++) {
+    UmexMap[Umex.charAt(ii)] = ii;
   }
   
   var UmexToMexMap = {};
-  for (var i = 0; i < mex.length; i++) {
-    UmexToMexMap[mex.charAt(i)] = Umex.charAt(i);
+  for (var iii = 0; iii < mex.length; iii++) {
+    UmexToMexMap[mex.charAt(iii)] = Umex.charAt(iii);
   }
   
   var mnums = mex.split("");
@@ -51,7 +50,7 @@
       return "-" + newNum;
     }
     return newNum;
-  };
+  }
   
   function convertFromMex(mexNum) {
     var newNum = 0;
@@ -66,7 +65,7 @@
       newNum += mexMap[cur] * Math.pow(maxMnum, pow++);
     }
     return newNum;
-  };
+  }
   
   var lzw = new qubit.compression.LZW({});
   
@@ -77,7 +76,7 @@
    * Compressor class.
    * @param {Object} config - unused.
    */
-  function Compressor (config) {
+  function Compressor(config) {
   }
 
   Define.clazz("qubit.compression.Compressor", Compressor);
@@ -90,7 +89,7 @@
    *    custom LZW instance.
    * @returns {String} compressed string in binary UTF coded form.
    */
-  Compressor.prototype.compress = function(string, lz) {
+  Compressor.prototype.compress = function (string, lz) {
     var array = (lz || lzw).encode(string);
     var result = [];
 
@@ -112,7 +111,7 @@
    * @param {qubit.compression.LZW} lz optional LZW instance to be used.
    * @returns {String}
    */
-  Compressor.prototype.compressAnsi = function(string, lz) {
+  Compressor.prototype.compressAnsi = function (string, lz) {
     var array = (lz || lzw).encode(string);
     var result = [];
 
@@ -129,7 +128,7 @@
    * @param {qubit.compression.LZW} lz optional LZW instance to be used.
    * @returns {String} decompressed string
    */
-  Compressor.prototype.decompressAnsi = function(code, lz) {
+  Compressor.prototype.decompressAnsi = function (code, lz) {
     var array = [];
     var curr = "";
     for (var i = 0; i < code.length; i++) {
@@ -152,7 +151,7 @@
    * @param {qubit.compression.LZW} lz optional LZW instance to be used.
    * @returns {String} decompressed string
    */
-  Compressor.prototype.decompress = function(code, lz) {
+  Compressor.prototype.decompress = function (code, lz) {
     var array = [];
     for (var i = 0; i < code.length; i++) {
       array.push(code.charCodeAt(i));

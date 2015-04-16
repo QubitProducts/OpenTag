@@ -1,4 +1,3 @@
-//:include GLOBAL.js
 //:include qubit/Define.js
 
 /*
@@ -91,7 +90,7 @@
    * @returns {Boolean}
    */
   Utils.variableExists = function (value) {
-    return (value !== undefined) && (value !== null) && (value !== "");
+    return (value !== undefined) && (value !== null);
   };
 
 /*TRASH*/
@@ -170,9 +169,9 @@
    * @param {Object} obj
    * @returns {Number}
    */
-  function addAnonymousAcessor (obj) {
+  function addAnonymousAcessor(obj) {
     return Utils.addToArrayIfNotExist(Utils.ANON_VARS, obj);
-  };
+  }
 
   // GENERIC
   function escapeRegExp(string) {
@@ -305,7 +304,7 @@
    */
   Utils.objectCopy = function (obj, cfg) {
     cfg = cfg || {};
-    var res = _objectCopy (obj, cfg, cfg.maxDeep);
+    var res = _objectCopy(obj, cfg, cfg.maxDeep);
     travelArray = [];
     return res;
   };
@@ -316,13 +315,15 @@
       noFunctions = false,
       win = false,
       all = false,
-      copyReference = false;
+      copyReference = false,
+      emptyForMaxDeep = false;
     
     if (cfg) {
       all = !!cfg.all;
       nodes = all || cfg.nodes;
       win = all || cfg.win;
       noOwn = all;
+      emptyForMaxDeep = !!cfg.emptyForMaxDeep;
       noFunctions = cfg.noFunctions && !all;
       
       if (cfg.noOwn !== undefined) {
@@ -342,7 +343,10 @@
     }
     
     if (maxDeep !== undefined && !maxDeep) {
-      return;
+      if (emptyForMaxDeep) {
+        return;
+      }
+      return obj;
     } else if (maxDeep !== undefined) {
       maxDeep--;
     }
@@ -379,14 +383,14 @@
     }
 
     if (!noFunctions && obj instanceof Function) {
-      var funStr = String(obj).replace(/\s+/g,"");
+      var funStr = String(obj).replace(/\s+/g, "");
       if ((funStr.indexOf("{[nativecode]}") + 14) === funStr.length) {
         //native case
-        copy = function() {
+        copy = function () {
           return obj.apply(parentObj || this, arguments);
         };
       } else {
-        copy = function() {
+        copy = function () {
           return obj.apply(this, arguments);
         };
       }
@@ -454,7 +458,7 @@
    * 
    * Execution function `exe` will be called on each object's property:
    * 
-         exe(obj, parent, propName, trackPath)
+   exe(obj, parent, propName, trackPath)
    * 
    * Where obj is the objects propery reference, parent is the parent object 
    * reference, propName is the property name and trackPath is a fully qualified
@@ -473,27 +477,27 @@
    *    
    * - `nodes` if DOM nodes should be included in traverse (default false)
    */
-   Utils.traverse = function (obj, exe, cfg) {
-     _traverse(obj, exe, cfg);
-   };
-   
-   function _traverse(obj, exe, cfg, start, parent, prop, trackPath) {
+  Utils.traverse = function (obj, exe, cfg) {
+    _traverse(obj, exe, cfg);
+  };
+
+  function _traverse(obj, exe, cfg, start, parent, prop, trackPath) {
     cfg = cfg || {};
-    
+
     if (cfg.hasOwn === undefined) {
       cfg.hasOwn = true;
     }
-    
+
     if (cfg.objectsOnly && !(obj instanceof Object)) {
       return;
     }
-    
+
     if (cfg.maxDeep !== undefined && !cfg.maxDeep) {
       return;
     } else if (cfg.maxDeep !== undefined) {
       cfg.maxDeep--;
     }
-    
+
     if (!cfg || !cfg.nodes) {
       try {
         if (obj instanceof Node) {
@@ -515,25 +519,25 @@
       traverseArray = [];
       start = 0;
     }
-    
+
     if (existsInTraversePath(obj, start)) {
       return;
     }
 
     traverseArray[start] = obj;
     parent = parent || obj;
-    
+
     if (parent && prop && (parent[prop] !== parent[prop])) {
       //live getters will be ommited
       return;
     }
-    
+
     var stopHere = exe(obj, parent, prop, trackPath);
-    
+
     if (stopHere) {
       return;
     }
-    
+
     var i = 0;
     var objPath = "";
     for (var pprop in obj) {
@@ -544,11 +548,12 @@
             objPath = trackPath ? (trackPath + "." + pprop) : pprop;
           }
           _traverse(object, exe, cfg, start + 1, parent, pprop, objPath);
-        } catch (e) {}
+        } catch (e) {
+        }
       }
       i++;
     }
-  };
+  }
 
   /**
    * Prepares string to be quoted and evaluable.
@@ -586,44 +591,49 @@
    *     will be used to create constructor - optional. 
    * @param {String} classPath classpath to be used and set at
    * @param {Function} extendingClass class to inherit from
+   * @param {Object} pckg namespace package to be put at
    * @returns {Object} defined class reference
    */
-  Utils.defineClass = function (classPath, extendingClass, config) {
+  Utils.defineClass = function (classPath, extendingClass, config, pckg) {
     
     var names = classPath.split(".");
     var className = names[names.length - 1];
     
     //create class
-    //@TODO create eval fix and do proper wrap.
     var clazz;
-    var funTemplate = "(function " + className + "() {" +
-      "  if (" + classPath + "._CONSTRUCTOR) {" +
-      "    return " + classPath + "._CONSTRUCTOR.apply(this, arguments);" +
-      "  } else {" +
-      "    if (" + classPath + ".superclass) {" +
-      "      return " + classPath + ".superclass.apply(this, arguments);" +
-      "    }" + 
-      "  }" +
-      "})";
     
-    clazz = Utils.gevalAndReturn(funTemplate).result;
-
-//or anonymous:
-//    var clazz = function () {
-//      if (CONSTR) {
-//         CONSTR.apply(this, arguments);
+    // @todo arguably, anonymous looks better, but still, its good to have 
+    //the name present
+    var funTemplate = ["clazz = ",
+            "(function ", className, "() {",
+      "  if (", classPath, "._CONSTRUCTOR) {",
+      "    return ", classPath, "._CONSTRUCTOR.apply(this, arguments);",
+      "  } else {",
+      "    if (", classPath, ".superclass) {",
+      "      return ", classPath, ".superclass.apply(this, arguments);",
+      "    }",
+      "  }",
+      "})"
+      ].join("");
+    //evaluate locally (qubit )!
+    eval(funTemplate);
+    
+    var CONSTRUCTOR = config.CONSTRUCTOR;
+    
+//    //or anonymous:
+//    clazz = function () {
+//      if (clazz._CONSTRUCTOR) {
+//        return clazz._CONSTRUCTOR.apply(this, arguments);
 //      } else if (clazz.superclass) {
-//        clazz.superclass.apply(this, arguments);
+//        return clazz.superclass.apply(this, arguments);
 //      }
 //    };
-
-    var CONSTRUCTOR = config.CONSTRUCTOR;
     
     clazz._CONSTRUCTOR = CONSTRUCTOR;
     clazz.superclass = extendingClass;
     
     //publish class
-    Utils.clazz(classPath, clazz, extendingClass);
+    Define.clazz(classPath, clazz, extendingClass, pckg);
     
     //pass prototype objects
     for (var prop in config) {
@@ -730,12 +740,14 @@
    * @param {Object} obj
    */
   Utils.removeFromArray = function (array, obj) {
-    var i = 0;
+    var i = 0, total = 0;
     for (; i < array.length; i += 1) {
       if (array[i] === obj) {
         array.splice(i, 1);
+        total++;
       }
     }
+    return total;
   };
   
   /**
@@ -782,23 +794,34 @@
     }
   };
   
+  var prefix = "try{this.qubitopentagutilsgevalandreturn__var_test__=(";
+  var suffix = ");}catch(ex){" +
+      "this.qubitopentagutilsgevalandreturn__var_test__error = ex;}";
   /**
    * Evaluates expression and returns value of wrapped by "(" expression ")".
    * @param {String} expression
    * @returns {Object}
    */
   Utils.gevalAndReturn = function (expression) {
-    Utils.gevalAndReturn.___var_test___ = undefined;
-    Utils.gevalAndReturn.___var_test___error = undefined;
-    expression  =
-            "try{qubit.opentag.Utils.gevalAndReturn.___var_test___=(" +
-            expression +
-            ");}catch(ex){" +
-            "qubit.opentag.Utils.gevalAndReturn.___var_test___error = ex;" +
-            "}";
+    var G = GLOBAL;
+    G.qubitopentagutilsgevalandreturn__var_test__ = undefined;
+    G.qubitopentagutilsgevalandreturn__var_test__error = undefined;
+    
+    expression  = prefix + expression + suffix;
+
+    //must be geval
     Utils.geval(expression);
-    var res = Utils.gevalAndReturn.___var_test___;
-    var err = Utils.gevalAndReturn.___var_test___error;
+
+    var res = G.qubitopentagutilsgevalandreturn__var_test__;
+    var err = G.qubitopentagutilsgevalandreturn__var_test__error;
+    
+    try {
+      G.qubitopentagutilsgevalandreturn__var_test__ = UNDEF;
+      G.qubitopentagutilsgevalandreturn__var_test__error = UNDEF;
+      delete G.qubitopentagutilsgevalandreturn__var_test__;
+      delete G.qubitopentagutilsgevalandreturn__var_test__error;
+    } catch (ex) {/*IE magic*/}
+    
     return {
       result: res,
       error: err
@@ -840,16 +863,16 @@
    * @param {String} expression
    */
   Utils.geval = function (expression) {
-    //@todo replace withy global
     if (window && window.execScript) {
-      window.execScript(expression);
+      return window.execScript(expression);
     } else {
-      (function () {return global["eval"].call(global, expression); }());
+      return (function () {return global["eval"].call(global, expression); }());
     }
   };
   
   var _readyCalls = [];
   var _loaded = false;
+  var _flushed = false;
   /**
    * Function checks if body exists and document state is complete.
    * It accepts also callback which is run immediately if body exists and is 
@@ -860,17 +883,19 @@
    * @param {Function} callback
    * @returns {Boolean} true and only true if body and state is complete is available.
    */
-  Utils.bodyReady = function(callback) {
-    if (_loaded) {
+  Utils.bodyReady = function (callback) {
+    if (_flushed) {
       if (callback) {
         callback();
       }
       return true;
     }
 
-    _loaded = !!(document.body && document.readyState === "complete");
+    _loaded = _loaded ||
+            !!(document.body && document.readyState === "complete");
 
     if (_loaded) {
+      _flushed = true;
       for (var i = 0; i < _readyCalls.length; i++) {
         try {
           _readyCalls[i]();
@@ -892,7 +917,7 @@
     return _loaded;
   };
   
-  //@TODO maybe loop will be more "smooth" choice, review it.
+  // @TODO maybe loop will be more "smooth" choice, review it.
   var oldOnload = global.onload;
   global.onload = function (e) {
     Utils.bodyReady();
@@ -900,5 +925,156 @@
       oldOnload(e);
     }
   };
+  
+  // FIX IT and CLEANUP
+  (function () {
+    var DOMContentLoaded,
+            isReady = false,
+            readyWait = 1,
+            readyList,
+            readyComplete,
+            bindReadyComplete,
+            doScrollCheck;
+
+    readyComplete = function (wait) {
+      var f;
+      // A third-party is pushing the ready event forwards
+      if (wait === true) {
+        readyWait -= 1;
+      }
+
+      // Make sure that the DOM is not already loaded
+      if (!readyWait || (wait !== true && !isReady)) {
+        // Make sure body exists, at least, 
+        // in case IE gets a little overzealous (ticket #5443).
+        if (!document.body) {
+          return setTimeout(readyComplete, 1);
+        }
+
+        // Remember that the DOM is ready
+        isReady = true;
+
+        // If a normal DOM Ready event fired, decrement, and wait if need be
+        if (wait !== true) {
+          readyWait -= 1;
+          if (readyWait > 0) {
+            return;
+          }
+        }
+
+        // While there are functions bound, to execute
+        while (readyList.length > 0) {
+          f = readyList.shift();
+          f();
+        }
+      }
+    };
+
+
+    //The DOM ready check for Internet Explorer
+    doScrollCheck = function () {
+      if (isReady) {
+        return;
+      }
+
+      try {
+        // If IE is used, use the trick by Diego Perini
+        // http://javascript.nwbox.com/IEContentLoaded/
+        document.documentElement.doScroll("left");
+      } catch (e) {
+        setTimeout(doScrollCheck, 1);
+        return;
+      }
+
+      // and execute any waiting functions
+      readyComplete();
+    };
+
+    bindReadyComplete = function () {
+      if (readyList) {
+        return;
+      }
+
+      readyList = [];
+
+      // Catch cases where $(document).ready() is called after the
+      // browser event has already occurred.
+      if (document.readyState === "complete") {
+        // Handle it asynchronously to allow scripts 
+        // the opportunity to delay ready
+        return setTimeout(readyComplete, 1);
+      }
+
+      // Mozilla, Opera and webkit nightlies currently support this event
+      if (document.addEventListener) {
+        // Use the handy event callback
+        document.addEventListener("DOMContentLoaded", DOMContentLoaded, false);
+
+        // A fallback to window.onload, that will always work
+        window.addEventListener("load", readyComplete, false);
+
+        // If IE event model is used
+      } else if (document.attachEvent) {
+        // ensure firing before onload,
+        // maybe late but safe also for iframes
+        document.attachEvent("onreadystatechange", DOMContentLoaded);
+
+        // A fallback to window.onload, that will always work
+        window.attachEvent("onload", readyComplete);
+
+        // If IE and not a frame
+        // continually check to see if the document is ready
+        var toplevel = false;
+
+        try {
+          toplevel = (window.frameElement === null) ||
+                  (window.frameElement === undefined);
+        } catch (e) {
+        }
+
+        if (document.documentElement.doScroll && toplevel) {
+          doScrollCheck();
+        }
+      }
+    };
+
+    //Handle when the DOM is ready
+    var ready = function (fn) {
+      // Attach the listeners
+      bindReadyComplete();
+
+      // Add the callback
+      if (isReady) {
+        setTimeout(fn, 1);
+      } else {
+        readyList.push(fn);
+      }
+    };
+
+    //Cleanup functions for the document ready method
+    if (document.addEventListener) {
+      DOMContentLoaded = function () {
+        document.removeEventListener("DOMContentLoaded",
+                DOMContentLoaded, false);
+        readyComplete();
+      };
+
+    } else if (document.attachEvent) {
+      DOMContentLoaded = function () {
+        // Make sure body exists, at least, in case IE gets a 
+        // little overzealous (ticket #5443).
+        if (document.readyState === "complete") {
+          document.detachEvent("onreadystatechange", DOMContentLoaded);
+          readyComplete();
+        }
+      };
+    }
+
+    ready(function () {
+      _loaded = true;
+      Utils.bodyReady();
+    });
+  }());
+  
   
 }());

@@ -1,4 +1,4 @@
-//:include qubit/opentag/Utils.js
+//:include qubit/Define.js
 
 (function () {
   var category = {
@@ -6,7 +6,7 @@
     name: "DSP"
   };
   
-  qubit.opentag.Utils.namespace(
+  qubit.Define.namespace(
           "qubit.opentag.data.category.DSP",
           category);
 }());

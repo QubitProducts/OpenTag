@@ -12,7 +12,7 @@
 (function () {
   
   var Define = qubit.Define;
-  var c = null;
+  var _console = null;
   
   /**
    * @class qubit.opentag.Log
@@ -29,7 +29,7 @@
    */
   function Log(prefix, clazz, collectLocally) {
     
-    this.collectLogs = !!Log.COLLECT;
+    this.collectLogs = !!Log.isCollecting();
     this.collectLocally = collectLocally;
     /**
      * Collection of logging inputs:
@@ -107,21 +107,52 @@
    */
   Log.prototype.MAX_LOG_LEN = -1;
   
+  var LEVEL = Log.LEVEL_NONE;
+  LEVEL = Log.LEVEL_INFO;/*D*///line deleted during merge
+  var COLLECT_LEVEL = Log.LEVEL_FINE;
+  var COLLECT = true;
+  
   /**
-   * @property LEVEL
+   * Global setter to indicate if logs should be collected (memorised).
+   * Memorised logs can be print again with rePrint methods on logger instances
+   * or directly on global `Log.rePrintAll()` method.
+   * @param {Boolean} isCollecting if logs should be collected. Takes effect 
+   *  immediately.
+   */
+  Log.setCollecting = function (isCollecting) {
+    COLLECT = !!isCollecting;
+  };
+  
+  /**
+   * Getter that returns true if system is collecting logs.
+   * @returns {Boolean} true only if system is collecting logs.
+   */
+  Log.isCollecting = function () {
+    return COLLECT || Log.COLLECT;
+  };
+  
+  /**
+   * Global logger level setter.
+   * @param {Number} level one of qubit.opentag.Log.LEVEL_* properties
+   */
+  Log.setLevel = function (level) {
+    LEVEL = +level;
+  };
+  
+  /**
    * 
-   * `Log.LEVEL` property is used to controll globally current and default loggin
-   * level.
+   * `Log.getLevel()` getter/setter is used to controll globally current and 
+   * default logging levels.
    * Choose from Log.LEVEL_* properties to adjust system logging output.
    * 
    * Example:
     
-         qubit.opentag.Log.LEVEL = qubit.opentag.Log.LEVEL_FINEST;
+         qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_FINEST);
 
    *  will enable all logs to 
    * be at output.
    
-         qubit.opentag.Log.LEVEL = qubit.opentag.Log.LEVEL_NONE;
+         qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_NONE);
   
    * will disable any logs.
    * 
@@ -133,12 +164,33 @@
         Log.LEVEL_WARN = 1;
         Log.LEVEL_ERROR = 0;
         Log.LEVEL_NONE = -1;
-  
+    
+    
+   * @returns {Number} current level, one of qubit.opentag.Log.LEVEL_* 
+   *   properties
    */
-  Log.LEVEL = Log.LEVEL_NONE;
-  Log.LEVEL = Log.LEVEL_INFO;/*D*///line deleted during merge
-  Log.COLLECT_LEVEL = Log.LEVEL_FINE;
-  Log.COLLECT = true;
+  Log.getLevel = function () {
+    return LEVEL;
+  };
+  
+  /**
+   * Collection level setter. One of qubit.opentag.Log.LEVEL_*.
+   * Collection level indicates which level should be used to memorise logs 
+   * so they can be printed again. See `rePrintAll()` for more details.
+   * @param {Number} level one of qubit.opentag.Log.LEVEL_* properties
+   */
+  Log.setCollectLevel = function (level) {
+    COLLECT_LEVEL =  +level;
+  };
+  
+  /**
+   * Same as `gelLevel` but the level is set agains logs collected to be 
+   * memorised for later use. See `rePrintAll()` for more details.
+   * @returns {Number} level one of qubit.opentag.Log.LEVEL_* properties
+   */
+  Log.getCollectLevel = function () {
+    return COLLECT_LEVEL;
+  };
   
   var collection = [];
   
@@ -160,19 +212,22 @@
    * as plain logging in console.
    * @param {Number} level logging LEVEL value to use
    * @param {Number} delay delay each message by delay ms value
+   * @param {Boolean} noclean if console should not be cleared
+   * @param {Array} array alternative array of logs to be reprinted, normally
+   *   you dont need to use it unless you implement custom logs history.
    */
   Log.rePrintAll = function (level, delay, noClean, array) {
-    var oldLevel = Log.LEVEL;
+    var oldLevel = LEVEL;
     
     if (level !== undefined) {
-      Log.LEVEL = level;
+      LEVEL = level;
     }
     
     try {
-      if (Log.COLLECT) {
+      if (Log.isCollecting()) {
         try {
           if (!noClean) {
-            c.clear();
+            _console.clear();
           }
         } catch (ex) {
           
@@ -183,19 +238,19 @@
           (function (j) {
             var log = collection[j];
             var logLevel = log[3];
-            if (logLevel !== undefined && Log.LEVEL >= logLevel) {
+            if (logLevel !== undefined && LEVEL >= logLevel) {
               counter++;
               if (!delay) {
                 Log.print.apply(Log, log);
               } else {
                 qubit.opentag.Timed.setTimeout(function () {
                   if (level !== undefined) {
-                    Log.LEVEL = level;
+                    LEVEL = level;
                   }
                   try {
                     Log.print.apply(Log, log);
                   } finally {
-                    Log.LEVEL = oldLevel;
+                    LEVEL = oldLevel;
                   }
                 }, counter * delay);
               }
@@ -206,7 +261,7 @@
     } catch (ex) {
       //for sanity
     } finally {
-      Log.LEVEL = oldLevel;
+      LEVEL = oldLevel;
     }
   };
   
@@ -219,9 +274,8 @@
     return _ssupported;
   };
   
-  var altConsole = {
-    
-  };
+  //dummy for now
+  var altConsole = {};
   /**
    * 
    * Attach console object to controll logging print method.
@@ -229,8 +283,8 @@
    * @returns {Object} console attached
    */
   Log.setConsole = function (xconsole) {
-    xconsole = xconsole || altConsole;
-    return c = xconsole;
+    _console = xconsole || altConsole;
+    return _console;
   };
   
   /**
@@ -267,14 +321,14 @@
       }
       try { //try delayed option, if package exists
         qubit.opentag.Timed.setTimeout(function () {
-            this.print(message, style, type, level);
+          this.print(message, style, type, level);
         }.bind(this), delay);
       } catch (e) {
         setTimeout(function () {
           this.print(message, style, type, level);
         }.bind(this), delay);
       }
-      _last_run  = new Date().valueOf() + delay;
+      _last_run = new Date().valueOf() + delay;
     } else {
       this.print(message, style, type, level);
     }
@@ -301,22 +355,22 @@
    */
   Log.print = function (message, style, type, level) {
     //pre-eliminary step
-    if (level !== undefined && Log.LEVEL < level) {
+    if (level !== undefined && LEVEL < level) {
       return;
     }
     try {
-      if (c && c.log) {
+      if (_console && _console.log) {
         if (style && Log.isStyleSupported()){
-          if (type && c[type]) {
-            c[type]("%c" + message, style);
+          if (type && _console[type]) {
+            _console[type]("%c" + message, style);
           } else {
-            c.log("%c" + message, style);
+            _console.log("%c" + message, style);
           }
         } else {
-          if (type && c[type]) {
-            c[type](message);
+          if (type && _console[type]) {
+            _console[type](message);
           } else {
-            c.log(message);
+            _console.log(message);
           }
         }
       }
@@ -335,12 +389,12 @@
    */
   Log.prototype.collect = function (toPrint, level) {
     if (level === undefined) {
-      level = Log.COLLECT_LEVEL;
+      level = Log.getCollectLevel();
     }
     
     var collected = false;
-    var collectingGlobally = 
-            (this.collectLogs && Log.COLLECT && Log.COLLECT_LEVEL >= +level);
+    var collectingGlobally = (this.collectLogs && Log.isCollecting() &&
+      (Log.getCollectLevel() >= +level));
     
     if (collectingGlobally) {
       collection.push(toPrint);
@@ -364,7 +418,7 @@
         len = this.MAX_LOG_LEN;
       }
       if (this.collection.length > len) {
-          this.collection.splice(0, this.collection.length - len);
+        this.collection.splice(0, this.collection.length - len);
       }
     }
     
@@ -376,7 +430,7 @@
    */
   Log.clearAllLogs = function () {
     try {
-      c.clear();
+      _console.clear();
     } catch (e) {
     } finally {
       collection.splice(0, collection.length);
@@ -432,8 +486,8 @@
    */
   function logger(log, prefix, type, message, plain, style, plainStyle, level) {
     var toPrint;
-    var pass = Log.LEVEL >= level;
-    if (Log.COLLECT_LEVEL >= 0 || pass) {
+    var pass = LEVEL >= level;
+    if (Log.getCollectLevel() >= 0 || pass) {
       if (plain) {
         toPrint = [message, plainStyle, type];
       } else {

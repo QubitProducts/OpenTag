@@ -71,7 +71,7 @@ Example above could be run with shorter code:
 
 ```javascript
 	new qubit.opentag.BaseTag({
-		"name": "My tag name",
+		name: "My tag name",
 		url: "http://code.jquery.com/jquery.js",
 		script : function() {
 			alert("JQuery is present: " + !!jQuery);

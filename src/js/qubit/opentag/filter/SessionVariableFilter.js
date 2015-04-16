@@ -1,5 +1,5 @@
 //:include qubit/opentag/Log.js
-//:include qubit/opentag/Utils.js
+//:include qubit/Define.js
 //:include qubit/opentag/filter/BaseFilter.js
 
 /*
@@ -10,7 +10,6 @@
  */
 
 (function () {
-  var Utils = qubit.opentag.Utils;
   var BaseFilter = qubit.opentag.filter.BaseFilter;
 
   /**
@@ -61,29 +60,25 @@
        * @param {Function} ready
        * @param {qubit.opentag.BaseTag} tag
        */
-      customStarter: function(session, ready, tag) {
-        ready(false);
-      },
+      //customStarter: null,
       /**
        * Script deciding either script matches or not (top API level).
        * @cfg {Function}
        * @param {qubit.opentag.Session} session
        * @returns {Boolean}
        */
-      customScript: function (session) {
-        return true;
-      }
+      //customScript: null
     };
     
     if (config) {
-      for(var prop in config) {
+      for (var prop in config) {
         if (config.hasOwnProperty(prop)) {
-          if (prop === "customStarter" && !config[prop]) {
-            continue;
+          if (prop === "customStarter" && config[prop]) {
+            this.customStarter = config[prop];
+          } else  if (prop === "customScript" && config[prop]) {
+            this.customScript = config[prop];
           }
-          if (prop === "customScript" && !config[prop]) {
-            continue;
-          }
+          
           defaultConfig[prop] = config[prop];
         }
       }
@@ -92,10 +87,40 @@
     SessionVariableFilter.superclass.call(this, defaultConfig);
   }
   
-  Utils.clazz(
+  qubit.Define.clazz(
           "qubit.opentag.filter.SessionVariableFilter",
           SessionVariableFilter,
           BaseFilter);
+  
+  /**
+   * Custom starter function for session filter.
+   * Takes 3 arguments in the order:
+   *  1) `session` the session object
+   *  2) `ready` the ready callback that runs the tag, note: it will run the tag
+   *  directly.
+   *  3) `tag` tag reference object.
+   * This function can be overrided by `config.customStarter` function.
+   * 
+   * @param {qubit.opentag.Session} session
+   * @param {Function} ready
+   * @param {qubit.opentag.BaseTag} tag
+   */
+  SessionVariableFilter.prototype.customStarter = function (
+                                                          session,
+                                                          ready,
+                                                          tag) {
+    ready(false);
+  };
+  /**
+   * Script deciding either script matches or not (top API level).
+   * This function can be overrided by `config.customScript` function.
+   * 
+   * @param {qubit.opentag.Session} session
+   * @returns {Boolean}
+   */
+  SessionVariableFilter.prototype.customScript = function (session) {
+    return true;
+  };
   
   /**
    * Match function for a filter.
@@ -103,7 +128,10 @@
    */
   SessionVariableFilter.prototype.match = function () {
     try {
-      return !!this.config.customScript(this.getSession());
+      if (this._matchState === undefined) {
+        this._matchState = !!this.customScript(this.getSession());
+      }
+      return this._matchState;
     } catch (ex) {
       this.log.FINE("Filter match throws exception:" + ex);
       return false;
@@ -117,10 +145,10 @@
    */
   SessionVariableFilter.prototype.runTag = function (tag) {
     if (!this._runTag) {
-      if (this.config.customStarter) {
+      if (this.customStarter) {
         //trigger "customStarter", only once
         this._runTag = true;
-        this.config.customStarter(this.getSession(), function (rerun) {
+        this.customStarter(this.getSession(), function (rerun) {
           this.lastRun = new Date().valueOf();
           if (rerun === true) {
             tag.run();
@@ -149,7 +177,7 @@
     }
     
     if (pass === BaseFilter.state.PASS) {
-      if (this.config.customStarter) {
+      if (this.customStarter) {
         pass = BaseFilter.state.SESSION;
       }
     }
@@ -166,6 +194,7 @@
    * Reset function.
    */
   SessionVariableFilter.prototype.reset = function () {
+    this._matchState = undefined;
     SessionVariableFilter.superclass.prototype.reset.call(this);
     this._runTag = undefined;
   };

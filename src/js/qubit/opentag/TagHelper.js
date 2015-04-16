@@ -5,6 +5,7 @@
  * @author Piotr (Peter) Fronc <peter.fronc@qubitproducts.com>
  */
 
+//:include qubit/Define.js
 //:include qubit/opentag/Utils.js
 //:include qubit/opentag/Timed.js
 //:include qubit/opentag/TagsUtils.js
@@ -35,9 +36,9 @@
    * specific for tag execution and management.
    * 
    */
-  function TagHelper () {};
+  function TagHelper() {}
 
-  Utils.clazz("qubit.opentag.TagHelper", TagHelper);
+  qubit.Define.clazz("qubit.opentag.TagHelper", TagHelper);
 
   /**
    * Injects HTML fragments for a tag.
@@ -48,7 +49,7 @@
    * @param {String} altHtml
    */
   TagHelper.injectHTMLForLoader = 
-          function(tag, callback, tryWrite, altHtml) {
+          function (tag, callback, tryWrite, altHtml) {
     var config = tag.config;
     var html = (altHtml !== undefined) ? altHtml : config.html;
 
@@ -62,7 +63,7 @@
       
       try {
         if (location) {
-          TagsUtils.injectHTML(location, append, html, function() {
+          TagsUtils.injectHTML(location, append, html, function () {
             tag.log.FINE("finished html injection.");
             tag.injectHTMLNotFinished = false;
             if (callback) {
@@ -75,8 +76,8 @@
             }
           }.bind(tag));
         } else if (tryWrite && document.readyState === "loading") {
-            document.write(html);
-            tag.injectHTMLNotFinished = false;
+          document.write(html);
+          tag.injectHTMLNotFinished = false;
         } else {
           tag.injectHTMLFailed = new Date().valueOf();
           tag.log.ERROR("location was not found or/and html is " + 
@@ -86,7 +87,7 @@
         }
       } catch (ex) {
         tag.injectHTMLNotFinished = false;
-        //@TODO do we fail tags when exceptions are thrown?
+        // @TODO do we fail tags when exceptions are thrown?
         tag.injectHTMLFailed = new Date().valueOf();
         tag.log.ERROR("error while trying to inject html: " + ex);
       }
@@ -104,12 +105,13 @@
     var ret = [];
     try {
       var params = tag.parameters;
-      if (params)
+      if (params) {
         for (var i = 0; i < params.length; i++) {
           if (params[i].variable === varRef) {
             ret.push(params[i]);
           }
         }
+      }
     } catch (ex) {}
     return ret;
   }
@@ -119,7 +121,7 @@
    * @param {qubit.opentag.BaseTag} tag
    * @returns {Array} Array of [parameter,variable] pairs
    */
-  TagHelper.getAllVariablesWithParameters = function(tag) {
+  TagHelper.getAllVariablesWithParameters = function (tag) {
     var vars = tag.getPageVariables();
     var results = [];
     for (var i = 0; i < vars.length; i++) {
@@ -143,7 +145,7 @@
    * @param {Boolean} tryDefaults
    * @returns {Boolean}
    */
-  TagHelper.allParameterVariablesReadyForTag = function(tag, tryDefaults) {
+  TagHelper.allParameterVariablesReadyForTag = function (tag, tryDefaults) {
     var useDefaults = tryDefaults;
     var log = tag.log;
     var allReady = true;
@@ -165,7 +167,7 @@
         /*log*/
         var name = pageVar.config.name ? pageVar.config.name : "[unnamed]";
 
-        Timed.maxFrequent(function() {
+        Timed.maxFrequent(function () {
           log.FINEST("Variable '" + name + "' exists? " + exist);
         }, 5000, _lock_obj);
         /*~log*/
@@ -176,7 +178,7 @@
         }
       } catch (ex) {
         /*log*/
-        Timed.maxFrequent(function() {
+        Timed.maxFrequent(function () {
           log.ERROR("Error checking variable existence ");
           log.ERROR([pageVar, ex]);
         }, 5000, _lock_obj);
@@ -192,7 +194,7 @@
       _lock_obj.alreadyNotified = true;
     }
 
-    Timed.maxFrequent(function() {
+    Timed.maxFrequent(function () {
       log.FINEST("Checking page variables, variables are ready: " + allReady);
       if (!allReady) {
         log.FINE("Variables not ready, waiting...");
@@ -220,24 +222,24 @@
    * @returns {qubit.opentag.pagevariable.BaseVariable} instance of 
    *    BaseVariable or null
    */
-  TagHelper.validateAndGetVariableForParameter = function(param) {
-    if (param.hasOwnProperty("variable")) {
-      if (param.variable) {
-        return param.variable = TagHelper.initPageVariable(param.variable);
-      }
-    }
-    
-    if (param.uv) {//empty strings are also excluded
-      return param.variable = new Expression({
+  TagHelper.validateAndGetVariableForParameter = function (param) {
+    if (param.hasOwnProperty("variable") && param.variable) {// @todo review
+      //validate it:
+      param.variable = TagHelper.initPageVariable(param.variable);
+    } else if (param.uv) {//empty strings are also excluded
+      param.variable = new Expression({
         name: param.uv,
         value: param.uv
       });
+    } else {
+      //got here? well: not set! initialize:
+      param.variable = TagHelper.initPageVariable({
+        value: undefined,
+        empty: true //marker to recognise empty initialization
+      });
     }
-    //got here? well: not set! initialize.
-    return param.variable = TagHelper.initPageVariable({
-      value: undefined,
-      empty: true
-    });
+    
+    return param.variable;
   };
   
   /**
@@ -273,24 +275,24 @@
       return cfg;
     }
     switch (cfg.type) {
-      case JS_VALUE:
-        return new Expression(cfg);
-      case QUERY_PARAM:
-        return  new URLQuery(cfg);
-      case COOKIE_VALUE:
-        return new Cookie(cfg);
-      case ELEMENT_VALUE:
-        return new DOMText(cfg);
-      case 'EPRESSION':
-        return new Expression(cfg);
-      case 'URL_PARAMETER':
-        return  new URLQuery(cfg);
-      case 'COOKIE_VALUE':
-        return new Cookie(cfg);
-      case 'DOM_VALUE':
-        return new DOMText(cfg);
-      default:
-        return new BaseVariable(cfg);
+    case JS_VALUE:
+      return new Expression(cfg);
+    case QUERY_PARAM:
+      return  new URLQuery(cfg);
+    case COOKIE_VALUE:
+      return new Cookie(cfg);
+    case ELEMENT_VALUE:
+      return new DOMText(cfg);
+    case 'EPRESSION':
+      return new Expression(cfg);
+    case 'URL_PARAMETER':
+      return  new URLQuery(cfg);
+    case 'COOKIE_VALUE':
+      return new Cookie(cfg);
+    case 'DOM_VALUE':
+      return new DOMText(cfg);
+    default:
+      return new BaseVariable(cfg);
     }
   };
 }());

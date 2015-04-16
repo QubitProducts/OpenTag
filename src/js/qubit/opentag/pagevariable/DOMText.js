@@ -1,3 +1,4 @@
+//:include qubit/Define.js
 //:include qubit/opentag/Utils.js
 //:include qubit/opentag/pagevariable/BaseVariable.js
 
@@ -23,7 +24,7 @@
     DOMText.superclass.apply(this, arguments);
   }
   
-  Utils.clazz(
+  qubit.Define.clazz(
           "qubit.opentag.pagevariable.DOMText",
           DOMText,
           qubit.opentag.pagevariable.BaseVariable);

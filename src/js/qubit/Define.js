@@ -21,36 +21,59 @@
    * 
    */
   function Define() {}
-
-  var global = null;
-  try {
-    global = (false || eval)("this") || (function () { return this; }());
-  } catch (e) {}
   
   /**
    * Global scope accessor.
    * @returns {Object}
    */
   Define.global = function () {
-    return global;
+    return GLOBAL;
   };
 
   /**
-   * Function builds desired name space.
+   * Function builds desired name space in global scope.
    * It will not override existing elements.
+   * Global option does not apply if pckg is specified.
    * @param {String} path
    * @param {Object} instance
    * @param {Object} pckg
    * @param {Boolean} noOverride
    * @returns {Object}
    */
+  Define.globalNamespace = function (path, instance, pckg, noOverride) {
+    return _namespace(path, instance, pckg, noOverride, true);
+  };
+  
+  /**
+   * Function builds desired name space in defalt PKG_ROOT scope.
+   * It will not override existing elements.
+   * @param {String} path dot notation based objects path.
+   * @param {Object} instance reference to be put as last `object` node. If `undefined` 
+   *                  empty object will be used
+   * @param {Object} pckg object to start namespace at
+   * @param {Boolean} noOverride if set, "instance" parameter will not override
+   *    if object already exists in namespace. Can be ignored if 
+   *    `GLOBAL.TAGSDK_NS_OVERRIDE` is set to true (no overriding mode)
+   * @returns {Object} `{root, object}` pair where namespace starts at "root" 
+   *        and ends at "object". "object" is the top element namespace created.
+   */
   Define.namespace = function (path, instance, pckg, noOverride) {
+    return _namespace(path, instance, pckg, noOverride, false);
+  };
+  
+  function _namespace(path, instance, pckg, noOverride, isGlobal) {
     var files = path.split("."),
       //access eval INDIRECT so it is called globally
-      current = Define.NAMESPACE_BASE || Define.global(),
+      current = Define.NAMESPACE_BASE || PKG_ROOT,
       last = null,
       lastName = null,
       i;
+    
+    if (isGlobal) {
+      current = GLOBAL;
+    }
+    
+    var root = current;
     
     current = pckg || current;
     
@@ -64,8 +87,8 @@
     last = current;
     lastName = files[files.length - 1];
     
-    if (global.TAGSDK_NS_OVERRIDE) {
-       noOverride = false;
+    if (GLOBAL.TAGSDK_NS_OVERRIDE) {
+      noOverride = false;
     }
     
     if (instance !== undefined) {
@@ -76,8 +99,11 @@
       last[lastName] = last[lastName] || {};
     }
     
-    return last[lastName];
-  };
+    return {
+      root: root,
+      object: last
+    };
+  }
 
   /**
    * Utility for simple class declaration (not definition).
@@ -98,11 +124,15 @@
       instance.superclass = extendingClass;
       instance.prototype = new instance.superclass(config);
     }
+    var names = path.split(".");
     if (instance.prototype) {
-      var names = path.split(".");
       instance.prototype.CLASS_NAME = names[names.length - 1];
       names.splice(names.length - 1, 1);
       instance.prototype.PACKAGE_NAME = names.join(".");
+    } else {
+      instance.STATIC_NAME = names[names.length - 1];
+      names.splice(names.length - 1, 1);
+      instance.PACKAGE_NAME = names.join(".");
     }
     return instance;
   };

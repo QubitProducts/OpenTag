@@ -1,4 +1,5 @@
 //:include qubit/opentag/Utils.js
+//:include qubit/Define.js
 
 /*
  * TagSDK, a tag development platform
@@ -38,7 +39,7 @@
    * @class qubit.opentag.pagevariable.BaseVariable
    * @param config {Object} config object used to build instance
    */
-  function BaseVariable (config) {
+  function BaseVariable(config) {
     //defaults
     this.config = {};
     
@@ -77,7 +78,7 @@
     }
   }
   
-  Utils.clazz("qubit.opentag.pagevariable.BaseVariable", BaseVariable);
+  qubit.Define.clazz("qubit.opentag.pagevariable.BaseVariable", BaseVariable);
   
   BaseVariable.ALL_VARIABLES = {};
 
@@ -207,7 +208,7 @@
    * @returns {String} replacement
    */
   BaseVariable.prototype.replaceToken =
-          function(token, string, altValue, useExpressionAccessor) {
+          function (token, string, altValue, useExpressionAccessor) {
     var exists = this.exists();
     var value = exists ? this.getValue() : altValue;
     token = "\\$\\{" + token + "\\}";

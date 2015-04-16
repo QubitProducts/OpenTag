@@ -1,3 +1,4 @@
+//:include qubit/Define.js
 //:include qubit/opentag/Utils.js
 //:include qubit/opentag/LibraryTag.js
 
@@ -53,5 +54,8 @@
     CustomTag.superclass.call(this, config);
   }
   
-  Utils.clazz("qubit.opentag.CustomTag", CustomTag, qubit.opentag.LibraryTag);
+  qubit.Define.clazz(
+          "qubit.opentag.CustomTag",
+          CustomTag,
+          qubit.opentag.LibraryTag);
 }());

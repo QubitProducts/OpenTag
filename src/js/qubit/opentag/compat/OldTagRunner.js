@@ -1,4 +1,4 @@
-//:include GLOBAL.js
+//:include qubit/Define.js
 //:include qubit/opentag/Log.js
 //:include qubit/opentag/Container.js
 //:include qubit/opentag/Utils.js
@@ -19,7 +19,7 @@
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
 
-(function() {
+(function () {
   var Utils = qubit.opentag.Utils;
   var PatternType = qubit.opentag.filter.pattern.PatternType;
   var URLFilter = qubit.opentag.filter.URLFilter;
@@ -55,10 +55,11 @@
       pageVars: {},
       scriptLoaders: {},
       tellLoadTimesProbability: 0,
+      containerDisabled: false,
       pingServerUrl: "",
       qtag_domain: "",
       delayDocWrite: false,
-      maxCookieLength: 3000,
+      maxCookieLength: 1000,
       containerName: ""
     };
 
@@ -73,13 +74,13 @@
     }
   }
   
-  Utils.clazz("qubit.opentag.OldTagRunner", OldTagRunner);
+  qubit.Define.clazz("qubit.opentag.OldTagRunner", OldTagRunner);
   
   /**
    * Old configuration runner function.
    * This is entry method to parse and create container with all tags definitions. 
    */
-  OldTagRunner.prototype.run = function() {
+  OldTagRunner.prototype.run = function () {
     if (!this._run) {
       this._run = new Date().valueOf();
       log.FINE("entering run");
@@ -92,12 +93,24 @@
         containerId: this.config.profileName,
         name: this.config.containerName,
         tellLoadTimesProbability: this.config.tellLoadTimesProbability,
+        disabled: this.config.containerDisabled,
         pingServerUrl: this.config.pingServerUrl,
         trackSession: this.config.qtag_track_session
       });
       var tags = this.getTags();
       this.container.registerTags(tags);
-      this.container.run();
+      if (!this.container.config.disabled) {
+        this.container.run();
+      } else {
+        var enabledByCookie = 
+          qubit.Cookie.get("qubit.opentag.forceContainerRunning");
+        if (enabledByCookie !== null) {
+          this.container.run();
+        } else {
+          log.WARN("Container " + this.container.config.name + 
+            " is disabled, stopping.");//L
+        }
+      }
     }
   };
 
@@ -111,10 +124,10 @@
     var pageVars = this.config.pageVars;
 
     var tags = [];
-
-    for (var prop in tagDefinitions) {
+    var prop, loader, tag;
+    for (prop in tagDefinitions) {
       if (tagDefinitions.hasOwnProperty(prop)) {
-        var loader = tagDefinitions[prop];
+        loader = tagDefinitions[prop];
         //property is at same time tag's ID used elsewhere
         
         //collect filters for tag
@@ -122,7 +135,7 @@
         //collect parameters
         var parameterDefinitions = findParameters(loader, pageVars);
         
-        //@TODO must decide here! if custom!
+        // @TODO must decide here! if custom!
         // create instance
         
         var location = "";
@@ -147,6 +160,7 @@
           template: !!loader.template,
           locationPlaceHolder: ((+loader.positionId) === 1) ? "NOT_END" : "END",
           locationObject: location,
+          disabled: loader.disabled,
           async: loader.async,
           needsConsent: loader.needsConsent,
           usesDocumentWrite: loader.usesDocWrite,
@@ -155,6 +169,10 @@
         
         if (loader.prePostWindowScope !== undefined) {
           cfg.prePostWindowScope = loader.prePostWindowScope;
+        }
+        
+        if (loader.scriptTimeout) {
+          cfg.timeout = +loader.scriptTimeout;
         }
         
         if (dedupe) {
@@ -177,7 +195,7 @@
           cfg.script = loader.script;
         }
         
-        var tag = null;
+        tag = null;
         
         if (cfg.template) {
           tag = new LibraryTag(cfg);
@@ -194,18 +212,18 @@
     }
     
     //all tags ready, finally, attach dependencies (defined by IDs here)
-    for (var prop in tagDefinitions) {
+    for (prop in tagDefinitions) {
       if (tagDefinitions.hasOwnProperty(prop)) {
         var dependencies = [];
-        var loader = tagDefinitions[prop];
+        loader = tagDefinitions[prop];
         if (loader.dependencies) {
           for (var j = 0; j < loader.dependencies.length; j++) {
             var tagId = loader.dependencies[j];
             var dependency = tagDefinitions[tagId].instance;
             dependencies.push(dependency);
           }
-          var tag = loader.instance;
-          tag.dependencies = dependencies.concat(tag.dependencies);
+          tag = loader.instance;
+          tag.setDependencies(dependencies.concat(tag.getDependencies()));
         }
       }
     }
@@ -241,20 +259,20 @@
           };
           
           switch (variableDefinition.type) {
-            case V_JS_VALUE: //covers also UV
-              variable = new Expression(varCfg);
-              break;
-            case V_QUERY_PARAM:
-              variable = new URLQuery(varCfg);
-              break;
-            case V_COOKIE_VALUE:
-              variable = new Cookie(varCfg);
-              break;
-            case V_ELEMENT_VALUE:
-              variable = new DOMText(varCfg);
-              break;
-            default:
-              variable = new BaseVariable(varCfg);
+          case V_JS_VALUE: //covers also UV
+            variable = new Expression(varCfg);
+            break;
+          case V_QUERY_PARAM:
+            variable = new URLQuery(varCfg);
+            break;
+          case V_COOKIE_VALUE:
+            variable = new Cookie(varCfg);
+            break;
+          case V_ELEMENT_VALUE:
+            variable = new DOMText(varCfg);
+            break;
+          default:
+            variable = new BaseVariable(varCfg);
           }
           
           var parameter = {
@@ -274,7 +292,7 @@
       }
     }
     return ret;
-  };
+  }
 
   var NORMAL_FILTER = "1";
   var DEDUPE_URL_FILTER = "2";
@@ -284,7 +302,7 @@
    * Filter type getter.
    * @type String
    */
-  var getFilterType = function(filter) {
+  var getFilterType = function (filter) {
     var x = parseInt(filter.patternType, 10);
     if ((x < 10) || (x === 100)) {
       return NORMAL_FILTER;
@@ -317,12 +335,12 @@
         //  DEDUPE_SESSION_FILTER = "3";
         var session = false;
         switch (getFilterType(filter)) {
-          case NORMAL_FILTER:
-          case DEDUPE_URL_FILTER:
-            break;
-          case DEDUPE_SESSION_FILTER:
-            session = true;
-            break;
+        case NORMAL_FILTER:
+        case DEDUPE_URL_FILTER:
+          break;
+        case DEDUPE_SESSION_FILTER:
+          session = true;
+          break;
         }
 
         if (session ||
@@ -348,7 +366,7 @@
         filtersToReturn.push(filter.instance);
       }
     }
-    var sortFun = function(a, b) {
+    var sortFun = function (a, b) {
       return +a.priority > +b.priority;
     };
     return filtersToReturn.sort(sortFun);
@@ -372,24 +390,24 @@
    */
   function resolvePatternType(filter) {
     switch (filter.patternType) {
-      case FN:
-      case DEDUPE_FN:
-        return null;
-        //session execution it was...
-      case EXACT_MATCH:
-      case "1" + EXACT_MATCH:
-        return PatternType.MATCHES_EXACTLY;
-      case SUBSTRING:
-      case "1" + SUBSTRING:
-        return PatternType.CONTAINS;
-      case REGEX:
-      case "1" + REGEX:
-        return PatternType.REGULAR_EXPRESSION;
-      case ALL:
-      case "1" + ALL:
-        return PatternType.ALL_URLS;
-      default:
-        return null;
+    case FN:
+    case DEDUPE_FN:
+      return null;
+      //session execution it was...
+    case EXACT_MATCH:
+    case "1" + EXACT_MATCH:
+      return PatternType.MATCHES_EXACTLY;
+    case SUBSTRING:
+    case "1" + SUBSTRING:
+      return PatternType.CONTAINS;
+    case REGEX:
+    case "1" + REGEX:
+      return PatternType.REGULAR_EXPRESSION;
+    case ALL:
+    case "1" + ALL:
+      return PatternType.ALL_URLS;
+    default:
+      return null;
     }
   }
 })();

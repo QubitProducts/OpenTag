@@ -1,4 +1,4 @@
-//:include GLOBAL.js
+//:include qubit/Define.js
 //:include qubit/opentag/Utils.js
 //:include qubit/opentag/Timed.js
 //:include qubit/opentag/BaseTag.js
@@ -15,7 +15,7 @@
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
 
-(function(){
+(function () {
   var Utils = qubit.opentag.Utils;
   var BaseFilter = qubit.opentag.filter.BaseFilter;
   var BaseTag = qubit.opentag.BaseTag;
@@ -31,18 +31,21 @@
  * @TODO seriously, clean this up in opentag! use global not window
  * Compatibility layer.
  */
-  window.opentag_consentGiven = function () {
-    Container.consentIsGiven = true;
-    var all = Container.getContainers();
-    for (var i = 0; i < all.length; i++) {
-      try {
-        all[i].run();
-      } catch (ex) {
-        log.ERROR("error running consent dependant containers: " + ex);
+  try {
+    window.opentag_consentGiven = function () {
+      Container.consentIsGiven = true;
+      var all = Container.getContainers();
+      for (var i = 0; i < all.length; i++) {
+        try {
+          all[i].run();
+        } catch (ex) {
+          log.ERROR("error running consent dependant containers: " + ex);
+        }
       }
-    }
-  }.bind(this);
-  
+    }.bind(this);
+  } catch (ex) {
+    log.WARN("opentag_consentGiven could not be set!");
+  }
   /**
    * #Tags Container class
    * Tags are normally grouped into container objects which define some of
@@ -56,9 +59,11 @@
    * applies) for opentag.
    * 
    * Example of usage:
-   *
-   *       var aContainer =  new qubit.opentag.Container({
-        maxCookieLength: 2500,
+   *       
+
+
+      var aContainer =  new qubit.opentag.Container({
+        maxCookieLength: 1000,
         delayDocWrite: true,
         name: "Container A",
         tellLoadTimesProbability: true,
@@ -84,7 +89,7 @@
    * @param config {Object} config object used to build instance
    * 
    */
-  function Container (config) {
+  function Container(config) {
     this.runQueue = [];
     /*log*/
     this.log = new qubit.opentag.Log("", function () {
@@ -107,7 +112,7 @@
        */
       cookieDomain: "",
       /**
-       * @cfg {Number} [maxCookieLength=3000]
+       * @cfg {Number} [maxCookieLength=1000]
        * Maximum cookie length to be used by this tag. Set it to lower value
        * if serving pages use very long cookies.
        */
@@ -157,6 +162,13 @@
        */
       trackSession: false,
       /**
+       * @cfg {Boolean} [disabled=false]
+       * Indicates if container is disabled. Disabled container will not
+       * run unless `force` parameter is used. See `run()` method for 
+       * more details.
+       */
+      disabled: false,
+      /**
        * @cfg {String} [containerId=""]
        * Container DB ID. This vaue is required for ping and session to work.
        * work.
@@ -197,9 +209,15 @@
       this.log.FINE("container registered.");
       /*no-send*/
       this.ping = new qubit.opentag.Ping(this.config);
+      
+      var callback = this.sendPings.bind(this);
+      this._pingAsyncCallback = function () {
+        Timed.setTimeout(callback, 5);
+      };
+      
       /*~no-send*/
       /*session*/
-      //@TODO add maybe better session condition here(much better...)  
+      // @TODO add maybe better session condition here(much better...)  
       if (this.config.trackSession) {
         this.session = Session.setupSession(this.config);
       }
@@ -213,7 +231,7 @@
     return this;
   }
 
-  Utils.clazz("qubit.opentag.Container", Container);
+  qubit.Define.clazz("qubit.opentag.Container", Container);
 
   var containers = [];
   /**
@@ -228,6 +246,39 @@
    */
   Container.register = function (ref) {
     Utils.addToArrayIfNotExist(containers, ref);
+  };
+  
+  /**
+   * Function finds containers that have name equal to passed parameter.
+   * @param {String} name string that will be used to compare.
+   * @returns {Array} array of Containers registered in system.
+   * 
+   */
+  Container.findContainersByName = function (name) {
+    var items = this.getContainers();
+    var results = [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].config.name === name) {
+        results.push(items[i]);
+      }
+    }
+    return results;
+  };
+  
+  /**
+   * Gets container by its's given ID.
+   * @param {String} id
+   * @returns {qubit.opentag.Container} Container instance if found or 
+   *  null otherwise.
+   */
+  Container.getById = function (id) {
+    var items = this.getContainers();
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].config.containerId === id) {
+        return items[i];
+      }
+    }
+    return null;
   };
   
   /**
@@ -259,7 +310,7 @@
    * @returns {Boolean}
    */
   Container.prototype.hasConsent = function () {
-    return Cookie.get("qubitconsent", true) === "Accepted";
+    return Cookie.get("qubitconsent") === "Accepted";
   };
 
   /**
@@ -289,7 +340,7 @@
   };
   
   /**
-   * Function called wheh tag is registered with this container.
+   * Function called when tag is registered with this container.
    * @event
    * @param {qubit.opentag.BaseTag} tag
    */
@@ -411,18 +462,26 @@
   
   /**
    * Function calling tags to start execution.
+   * If Container.LOCKED is set to true or QUBIT_CONTAINERS_LOCKED is set to 
+   * true container will not run - to run it, use force parameter. 
+   * Those parameters are used mainly for debugging. Normally you can ignore 
+   * locking mechanism.
    * @param config
+   * @param {Boolean} force use if containers are LOCKED to enforce running.
    */
-  Container.prototype.runTags = function (config) {
-    if (Container.OFF || Utils.global().QUBIT_CONTAINERS_OFF) {
-      this.log.INFO("Container are DISABLED.");
-      this.log.INFO("To enable, set Container.OFF to " +
-              "true and set QUBIT_CONTAINERS_OFF to false.");//L
-      this.log.WARN("Container disabled -will stop here.");
-      return;
+  Container.prototype.runTags = function (config, force) {
+    if (!force) {
+      if (Container.LOCKED || Utils.global().QUBIT_CONTAINERS_LOCKED) {
+        this.log.INFO("All containers are LOCKED.");
+        this.log.INFO("To run, set Container.LOCKED to false and " +
+                " set Utils.global().QUBIT_CONTAINERS_LOCKED to false or " +//L
+                "use force parameter.");//L
+        this.log.WARN("Container locked - stopping here.");
+        return;
+      }
     }
     
-    var containerIsSynchronous = this.containerScriptLoadedSynchronously();
+    var forceAsync = !this.containerScriptLoadedSynchronously();
     
     var command = "runIfFiltersPass";
     if (config && config.command) {
@@ -435,43 +494,33 @@
      */
     this.runningStarted = new Date().valueOf();
     this.log.FINE("triggering runningStarted at " + this.runningStarted);
-    var tagsRunMap = {};
+    var firedTagsMap = {};
     for (var name in this.tags) {
       try {
         var tag = this.tags[name];
         //ignore tag state or check if clean and unstarted
         if (this.includedToRun(tag)) {
-          this.log.FINE("triggering tag named: " + name);
-          
-          if (!containerIsSynchronous) {
-            tag.forceAsynchronous = true;
-          }
-          
-          if (this.config.delayDocWrite) {
-            tag.delayDocWrite = true;
-          }
-            //attach session if necessary
-          tag.session = tag.session || this.session;//:session
-          //if dependencies are defind, and they are in the container, 
-          //try to run them immediately instead of waiting later!
-          if (tag.dependencies.length > 0) {
-            for (var i = 0; i < tag.dependencies.length; i++) {
-              var dependency = tag.dependencies[i];
-              var dname = dependency.config.name;
-              if(!tagsRunMap[dname] && this.tags[dname]) {
-                tagsRunMap[dname] = dependency;
-                dependency[command]();
+          //if dependencies are defined, and they are in the container, 
+          //try to run them rather now instead of later! (reordering)
+          var deps = tag.getDependencies();
+          if (deps.length > 0) {
+            for (var i = 0; i < deps.length; i++) {
+              var dependency = deps[i];
+              var depName = dependency.config.name;
+              if (!firedTagsMap[depName] && this.tags[depName]) {
+                firedTagsMap[depName] = dependency;
+                this._tagRunner(dependency, command, forceAsync);
               }
             }
           }
-          if (!tagsRunMap[name]) {
-            tagsRunMap[name] = tag;
-            tag[command]();
+          if (!firedTagsMap[name]) {
+            firedTagsMap[name] = tag;
+            this._tagRunner(tag, command, forceAsync);
           }
         }
       } catch (ex) {
-        this.log.ERROR("Error running tag with name '" + name +
-                "'.\n Error: " + ex);//L
+        this.log.ERROR("Error while preparing tag '" + name +
+                "' to run.\n Error: " + ex);//L
       }
     }
     //try to send pings sooner than later
@@ -482,18 +531,48 @@
     this.waitForAllTagsToFinish();
   };
 
+  Container.prototype._tagRunner = function (tag, command, forceAsync) {
+    try {
+      if (this.includedToRun(tag)) {
+        this.log.FINE("triggering tag named: " + tag.config.name);
+        if (forceAsync) {
+          tag.forceAsynchronous = true;
+        }
+        if (this.config.delayDocWrite) {
+          tag.delayDocWrite = true;
+        }
+        //attach session if necessary
+        tag.session = tag.session || this.session;//:session
+        tag[command]();
+      }
+    } catch (ex) {
+      this.log.ERROR(" -> tagRunner: Error running tag with name '" + 
+              tag.config.name + //L
+              "'.\n Error: " + ex);//L
+    }
+  };
+
   /**
    * @protected
    * If container can include the tag in running suite.
    * @param {qubit.opentag.BaseTag} tag tag to test if can be included
    * @returns {Boolean}
    */
-  Container.prototype.includedToRun = function(tag) {
-    if (tag.config.inactive) {
+  Container.prototype.includedToRun = function (tag) {
+    if (!tag) {
       return false;
     }
+    var cfg = tag.config;
+    if (cfg.inactive) {
+      return false;
+    }
+    if (cfg.disabled) {
+      if (!tag.cookieSaysToRunEvenIfDisabled()) {
+        return false;
+      }
+    }
     var consentOk = Container.consentIsGiven ||
-        (!tag.config.needsConsent) || this.hasConsent();
+        (!cfg.needsConsent) || this.hasConsent();
     var atInitialState = (tag.state === BaseTag.prototype.STATE.INITIAL);
     return this.ignoreTagsState || (consentOk && atInitialState);
   };
@@ -508,10 +587,19 @@
       return;
     }
     
+    if (!this._lastWaited) {
+      this._lastWaited = new Date().valueOf();
+    }
+    
     var l = this.log;//L
-    var finished = this.allTagsFinished();
+    var timedOut = (new Date().valueOf() - this._lastWaited) > 15 * 1000;
+    var finished = this.allTagsFinished() || timedOut;
     
     if (!this._showFinishedOnce && finished) {
+      this._lastWaited = null;
+      if (timedOut) {
+        this.log.WARN("Waiting too long. Check tags dependencies.");
+      }
       this._showFinishedOnce = true;
       /**
        * Property telling if and when all tags has been detected to finish
@@ -533,9 +621,11 @@
 
       l.INFO("Finished in " +
           (this.runningFinished - this.runningStarted) + "ms.", 0, styling);
+  
+      var len;
       
       if (results.run) {
-        var len = Utils.keys(results.run).length;
+        len = Utils.keys(results.run).length;
         l.INFO("Successfully run tags[" + len + "]:", 0, styling);
         l.INFO(results.run, true);
       } else {
@@ -543,7 +633,7 @@
       }
       
       if (results.failed) {
-        var len = Utils.keys(results.failed).length;
+        len = Utils.keys(results.failed).length;
         var addRed = results.failed === null ? "" : "color: #DF5500;";
         l.INFO("Failed to run[" + len + "]:", 0,  styling + addRed);
         l.INFO(results.failed, true);
@@ -552,7 +642,7 @@
       }
       
       if (results.awaiting) {
-        var len = Utils.keys(results.awaiting).length;
+        len = Utils.keys(results.awaiting).length;
         l.INFO("There is still " + awaitingLen +
                 " tag(s) ready to be fired by" +
                 " awaiting filters that can run.",
@@ -565,7 +655,7 @@
       }
 
       if (results.consent) {
-        var len = Utils.keys(results.consent).length;
+        len = Utils.keys(results.consent).length;
         l.INFO("Consent awaiting tags[" + len + "]:", 0, styling);
         l.INFO(results.consent, true);
       } else {
@@ -573,7 +663,7 @@
       }
       
       if (results.locked) {
-        var len = Utils.keys(results.locked).length;
+        len = Utils.keys(results.locked).length;
         l.INFO("Locked [" + len + "]:", 0,  styling);
         l.INFO(results.locked, true);
       } else {
@@ -581,7 +671,7 @@
       }
       
       if (results.other) {
-        var len = Utils.keys(results.other).length;
+        len = Utils.keys(results.other).length;
         l.INFO("Other unloaded tags[" + len + "]:", 0, styling);
         l.INFO(results.other, true);
       } else {
@@ -601,13 +691,13 @@
       }
       
     } else if (!finished) {
-        this._waitForAllTagsToFinishWaiting = true;
-        this._showFinishedOnce = false;
-        
-        Timed.setTimeout(function () {
-          this._waitForAllTagsToFinishWaiting = false;
-          this.waitForAllTagsToFinish();
-        }.bind(this), 100);
+      this._waitForAllTagsToFinishWaiting = true;
+      this._showFinishedOnce = false;
+
+      Timed.setTimeout(function () {
+        this._waitForAllTagsToFinishWaiting = false;
+        this.waitForAllTagsToFinish();
+      }.bind(this), 100);
         
     } else {
       l.INFO("********************************************************");
@@ -629,7 +719,7 @@
    * be re-run. Logs are never resetted.
    */
   Container.prototype.resetAllTags = function () {
-    log.WARN("reseting all tags!");
+    this.log.WARN("reseting all tags!");
     for (var prop in this.tags) {
       if (this.tags.hasOwnProperty(prop)) {
         this.tags[prop].reset();
@@ -641,7 +731,7 @@
    * Function reset this container (including it's registered tags).
    */
   Container.prototype.reset = function () {
-    log.WARN("reseting container!");
+    this.log.WARN("reseting container!");
     this.runningFinished = undefined;
     this._waitForAllTagsToFinishWaiting = undefined;
     this.runningStarted = undefined;
@@ -658,7 +748,7 @@
    */
   Container.prototype.sendPingsNotTooOften = function () {
     this._sndLck = this._sndLck || {};
-    Timed.runIfNotScheduled(this.sendPings.bind(this), 2000, this._sndLck);
+    Timed.runIfNotScheduled(this._pingAsyncCallback, 2000, this._sndLck);
   };
   
   /**
@@ -666,7 +756,15 @@
    * ready to be submitted and select them for submission.
    */
   Container.prototype.sendPings = function () {
+    var i;
     if (this.isTellingLoadTimes) {
+//    Those are available in results:
+//      run: runScripts, (to be sent NOW)
+//      failed: failed, (to be NOT sent)
+//      awaiting: filterReady, (to be set with callback)
+//      consent: consent, (to be NOT sent)
+//      locked: locked, (to be NOT sent)
+//      other: other filterReady, (to be set with callback)
       var results = this.getAllTagsByState();
       var _this = this;
       var loadTimes;
@@ -680,11 +778,11 @@
       }
       
       /*session*/
-      //dedupe
+      //dedupe part:
       loadTimes = Tags.getLoadTimes();
       var deduplicatedTagsToBeSent = [];
-      for (var i = 0; i < loadTimes.length; i++) {
-        (function(j) {
+      for (i = 0; i < loadTimes.length; i++) {
+        (function (j) {
           var tag = loadTimes[j].tag;
           if (tag.config.dedupe && tag.sendDedupePing) {
             deduplicatedTagsToBeSent.push(tag);
@@ -696,16 +794,17 @@
         this.lastDedupePingsSentTime = new Date().valueOf();
         this.ping.sendDedupe(this.config, deduplicatedTagsToBeSent);
       }
-
+      
+      // set callbacks for "other"
       if (results.other) {
         loadTimes = Tags.getLoadTimes(results.other);
-        var awaitingTagsToBeSent = [];
-        for (var i = 0; i < loadTimes.length; i++) {
-          (function(j) {
+        var otherTagsToBeSent = [];
+        for (i = 0; i < loadTimes.length; i++) {
+          (function (j) {
             var tag = loadTimes[j].tag;
-            awaitingTagsToBeSent.push(loadTimes[j]);
+            otherTagsToBeSent.push(loadTimes[j]);
             var after = tag.onAfter;
-            tag.onAfter = function(success) {
+            tag.onAfter = function (success) {
               after.call(tag, success);
               _this.sendPingsNotTooOften();
               if (success) {
@@ -714,18 +813,24 @@
             };
           }(i));
         }
+        
+        //in case tags are fired and method used separately
+        if (otherTagsToBeSent.length > 0) {
+          this.ping.send(this.config, otherTagsToBeSent);
+        }
       }
-
+      
+      // set callbacks for "other"
       if (results.awaiting) {
         loadTimes = Tags.getLoadTimes(results.awaiting);
         var awaitingTagsToBeSent = [];
-        for (var i = 0; i < loadTimes.length; i++) {
-          (function(j) {
+        for (i = 0; i < loadTimes.length; i++) {
+          (function (j) {
             var tag = loadTimes[j].tag;
             awaitingTagsToBeSent.push(loadTimes[j]);
 
             var after = tag.onAfter;
-            tag.onAfter = function(success) {
+            tag.onAfter = function (success) {
               after.call(tag, success);
               _this.sendPingsNotTooOften();
               if (success) {
@@ -734,7 +839,8 @@
             };
           }(i));
         }
-
+        
+        //in case tags are fired and method used separately
         if (awaitingTagsToBeSent.length > 0) {
           this.ping.send(this.config, awaitingTagsToBeSent);
         }
@@ -770,8 +876,8 @@
   Container.getAllTagsByState = function (tags) {
     var runScripts = null, other = null, filterReady = null, failed = null,
             consent = null, locked = null;
-    
-    var FILTERS_FAILED = BaseTag.prototype.STATE.FILTERS_FAILED;
+
+    var LOWEST_FAIL_STATE = BaseTag.prototype.STATE.EXECUTED_WITH_ERRORS;
     for (var prop in tags) {
       var tag = tags[prop];
       if (tag instanceof BaseTag) {
@@ -782,17 +888,17 @@
         } else if (tag.locked) {
           locked = locked || {};
           attachRenamedIfExist(locked, tag, name);
-        } else if (tag.scriptExecuted < 0 || (tag.state > FILTERS_FAILED)) {
-            failed = failed || {};
-            attachRenamedIfExist(failed, tag, name);
+        } else if (tag.scriptExecuted < 0 || (tag.state >= LOWEST_FAIL_STATE)) {
+          failed = failed || {};
+          attachRenamedIfExist(failed, tag, name);
         } else if (tag.filtersState() === BaseFilter.state.SESSION ||
                 tag.filtersState() > 0) {
           filterReady = filterReady || {};
           attachRenamedIfExist(filterReady, tag, name);
         } else if (tag.config.needsConsent) {
-            //consent needing unloaded
-            consent = consent || {};
-            attachRenamedIfExist(consent, tag, name);
+          //consent needing unloaded
+          consent = consent || {};
+          attachRenamedIfExist(consent, tag, name);
         } else {
           other = other || {};
           attachRenamedIfExist(other, tag, name);
@@ -800,6 +906,7 @@
       }
     }
     
+    // note that sendPings is using this function to select pings to be sent.
     return {
       run: runScripts,
       failed: failed,
@@ -828,7 +935,7 @@
    * @returns {Boolean}
    */
   Container.prototype.allTagsFinished = function () {
-    for(var prop in this.tags) {
+    for (var prop in this.tags) {
       if (this.tags.hasOwnProperty(prop)) {
         var tag = this.tags[prop];
         if (tag instanceof qubit.opentag.BaseTag) {
@@ -837,10 +944,16 @@
           // === 0 FAILED
           // > 0 filter is awaiting
           var state = tag.filtersState();
-          if ((tag.filtersState() < 0 && !tag.locked) &&
-                  !(tag.finished() || (tag.config.runner && !tag.isRunning))) {
-            if (state !== BaseFilter.state.SESSION) {
-              return false;
+          if (!tag.config.disabled) {
+            var notFailedAndUnlocked = tag.filtersState() < 0 && !tag.locked;
+            var tagNotFinishedOrNotRunner = 
+                    !(tag.finished() || (tag.config.runner && !tag.isRunning));
+            if (notFailedAndUnlocked && tagNotFinishedOrNotRunner) {
+              var isNotSession = (state !== BaseFilter.state.SESSION);
+              var doesWaitForDeps = +tag.awaitingDependencies > 0;
+              if (isNotSession && !doesWaitForDeps) {
+                return false;
+              }
             }
           }
         }
@@ -856,16 +969,16 @@
      #!/api/qubit.opentag.pagevariable.BaseVariable)
    */
   Container.prototype.getPageVariables = function () {
-  var vars = [];
-  for (var prop in this.tags) {
-    if (this.tags.hasOwnProperty(prop)) {
-      var tVars = this.tags[prop].getPageVariables();
-      for (var i = 0; i < tVars.length; i++) {
-        //for each parameter, get variable instance if not added already
-        Utils.addToArrayIfNotExist(vars, tVars[i]);
+    var vars = [];
+    for (var prop in this.tags) {
+      if (this.tags.hasOwnProperty(prop)) {
+        var tVars = this.tags[prop].getPageVariables();
+        for (var i = 0; i < tVars.length; i++) {
+          //for each parameter, get variable instance if not added already
+          Utils.addToArrayIfNotExist(vars, tVars[i]);
+        }
       }
     }
-  }
     return vars;
   };
   
@@ -886,5 +999,21 @@
       }
     }
     return rets;
+  };
+  /**
+   * When container is disabled - this method will set a cookie
+   * so all containers will ignore disabled state in config and will run as
+   * normal.
+   * This is an useful method for debugging and testing purposes.
+   */
+  Container.setCookieForDisabledContainersToRun = function () {
+    qubit.Cookie.set("qubit.opentag.forceContainerRunning", "true");
+  };
+  
+  /**
+   * This method clears cookie set with `setCookieForDisabledContainersToRun()`.
+   */
+  Container.rmCookieForDisabledContainersToRun = function () {
+    qubit.Cookie.rm("qubit.opentag.forceContainerRunning");
   };
 })();

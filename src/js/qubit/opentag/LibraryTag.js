@@ -1,3 +1,5 @@
+//:include GLOBAL.js
+//:include qubit/Define.js
 //:include qubit/opentag/Utils.js
 //:include qubit/opentag/BaseTag.js
 
@@ -31,8 +33,7 @@
     
     if (this.singleton) {
       var path = this.PACKAGE_NAME  + "." + this.CLASS_NAME;
-      var zuper = 
-              qubit.opentag.Utils.getObjectUsingPath(path);
+      var zuper = qubit.opentag.Utils.getObjectUsingPath(path, PKG_ROOT);
       if (zuper.__instance) {
         zuper.__instance.log.FINEST("Returning singleton instance.");
         return zuper.__instance;
@@ -43,7 +44,10 @@
     LibraryTag.superclass.call(this, config); 
   }
   
-  Utils.clazz("qubit.opentag.LibraryTag", LibraryTag, qubit.opentag.BaseTag);
+  qubit.Define.clazz(
+          "qubit.opentag.LibraryTag",
+          LibraryTag,
+          qubit.opentag.BaseTag);
   
   /**
    * @static
@@ -119,7 +123,7 @@
     LibraryTag.superclass.prototype.before.call(this);
     
     if (this.config.html || this.config.script) {
-      log.WARN("config.html or config.script is set while using pre." +
+      this.log.WARN("config.html or config.script is set while using pre." +
               " Cancelling running pre.");//L
       return false;//continue normally
     }
@@ -145,7 +149,7 @@
       }
     } catch (ex) {
       this.log.ERROR(this.config.name + " exception while running pre: " + ex);
-      return true;//cancell running 
+      return true;//cancel running 
     }
     return false;
   };
@@ -158,7 +162,7 @@
   LibraryTag.prototype.after = function (success) {
     LibraryTag.superclass.prototype.after.call(this, success);
     if (this.config.html || this.config.script) {
-      log.WARN("config.html or config.script is set while using post." +
+      this.log.WARN("config.html or config.script is set while using post." +
               " Cancelling running post.");//L
       return;
     }
@@ -216,7 +220,7 @@
   LibraryTag.define = function (namespace, libConfig) {
     namespace = namespace.replace(/^[\.]+/g, "")
       .replace(/[\.]+$/g, "")
-      .replace(/\.+/g,".");
+      .replace(/\.+/g, ".");
     
     //config must be set in runtime - for each instance
     var libraryDefaultConfig = libConfig.config;
@@ -235,9 +239,9 @@
     prototypeTemplate.CONSTRUCTOR = function (cfg) {
       //update instance properties for new defaults
       cfg = cfg || {};
-      //@todo repair this
-      var defaultsCopy = Utils.objectCopy(libraryDefaultConfig, {maxDeep: 5});
-      for(var prop in defaultsCopy) {
+      // @todo repair this
+      var defaultsCopy = Utils.objectCopy(libraryDefaultConfig, {maxDeep: 8});
+      for (var prop in defaultsCopy) {
         if (!cfg.hasOwnProperty(prop)) {
           cfg[prop] = defaultsCopy[prop];
         }
@@ -247,7 +251,7 @@
       var ret = qubit.opentag.LibraryTag.call(this, cfg);
       //any additional constructor? run it.
       if (constr) {
-          constr.call(this, cfg);
+        constr.call(this, cfg);
       }
       if (ret) {
         return ret;
@@ -255,7 +259,7 @@
     };
     
     var ret = qubit.opentag.Utils
-            .defineClass(namespace, LibraryTag, prototypeTemplate);
+            .defineClass(namespace, LibraryTag, prototypeTemplate, GLOBAL);
     
     //register them also in qubit scope.
     Utils.namespace("qubit.opentag.libraries." + namespace, ret);

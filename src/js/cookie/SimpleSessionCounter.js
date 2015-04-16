@@ -8,8 +8,8 @@ q.cookie.SimpleSessionCounter._cookieName = "_qst_s";
 q.cookie.SimpleSessionCounter._sessionCookie = "_qsst_s";
 q.cookie.SimpleSessionCounter.update = function (domain) {
   var c, s, ga, mins = 30;
-  c = qubit.Cookie.get(q.cookie.SimpleSessionCounter._cookieName, true);
-  s = qubit.Cookie.get(q.cookie.SimpleSessionCounter._sessionCookie, true);
+  c = qubit.Cookie.get(q.cookie.SimpleSessionCounter._cookieName);
+  s = qubit.Cookie.get(q.cookie.SimpleSessionCounter._sessionCookie);
   if (!c) {
     c = 1;
   } else {
@@ -18,9 +18,8 @@ q.cookie.SimpleSessionCounter.update = function (domain) {
       c += 1;
     }
   }
-  qubit.Cookie.set(q.cookie.SimpleSessionCounter._cookieName, 
-    c, 365, domain, true);
+  qubit.Cookie.set(q.cookie.SimpleSessionCounter._cookieName, c, 365, domain);
   qubit.Cookie.set(q.cookie.SimpleSessionCounter._sessionCookie, 
-    new Date().getTime().toString(), null, domain, true);
+    new Date().getTime().toString(), null, domain);
   return c;
 };

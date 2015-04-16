@@ -1,6 +1,7 @@
 /*EXCLUDE: SESSION*/
 //:include cookie/SimpleSessionCounter.js
 //:include html/Json2.js
+//:include qubit/Define.js
 //:include qubit/opentag/Utils.js
 //:include qubit/opentag/compression/CookieCompressor.js
 //:include qubit/opentag/Log.js
@@ -23,7 +24,7 @@
    */
   var Session = function () {};
   
-  Utils.clazz("qubit.opentag.Session", Session);
+  qubit.Define.clazz("qubit.opentag.Session", Session);
 
   var compressor = new qubit.opentag.compression.CookieCompressor({});
 
@@ -34,7 +35,7 @@
    * @returns {String} decompressed cookie
    */
   Session.readCompressedCookie = function (name) {
-    var cookie = Cookie.get(name);
+    var cookie = Cookie.get(name, true);
     return compressor.decompress(cookie);
   };
   
@@ -55,11 +56,12 @@
     
     // compat for non compressed cookie, historical compability, remove this
     // code after 15th of Sep 2015
-    cookie = Cookie.get(cookieName, true);
+    cookie = Cookie.get(cookieName);
     var nonCompressedCookie = !!cookie;
     
     if (cookie === null) {
-      cookie = Cookie.get(xCookieName);
+      //try compressed new cookie in use
+      cookie = Cookie.get(xCookieName, true);
       cookie = compressor.decompress(cookie);
     }
 
@@ -135,8 +137,8 @@
 
     i = 0;
 
-    while ((compressor.compress(cookieText).length > config.maxCookieLength)
-            && (i < 5)) {
+    while ((compressor.compress(cookieText).length > config.maxCookieLength) &&
+            (i < 5)) {
       if (cookie.referrer.length >= 3) {
         cookie.referrer.splice(2, 1);
       } else if (cookie.referrer.length === 2) {
@@ -157,17 +159,23 @@
     
     var xCookieText = compressor.compress(cookieText);
     Cookie.rm(xCookieName);
-    Cookie.set(xCookieName, xCookieText, 365, config.cookieDomain);
+    if (config.maxCookieLength > 0) {
+      Cookie.set(xCookieName, xCookieText, 365, config.cookieDomain, true);
+    }
 
     session.setVariable = function (key, value, time) {
       var t = (!!time) ? time : 0;
       cookie.__v[key] = [value, t];
       var xCookieText = compressor.compress(JSON.stringify(cookie));
-      Cookie.set(xCookieName, xCookieText, 365, config.cookieDomain);
+      if (config.maxCookieLength > 0) {
+        Cookie.set(xCookieName, xCookieText, 365, config.cookieDomain, true);
+      } else {
+        Cookie.rm(xCookieName);
+      }
     };
     
     session.getCookie = function (name, compressed) {
-      var res = Cookie.get(name); //get encoded
+      var res = Cookie.get(name, true); //get encoded
       if (res && (compressed || name.indexOf("x_") === 0)) {
         log.FINE("getCookie() : Comressed cookie accessed:\n" +
                 name + "=" + res);//L
@@ -178,7 +186,9 @@
         }
       } else {
         //apply decoding
-        res = Cookie.decode(res);
+        if (res !== null) {
+          res = Cookie.decode(res);
+        }
       }
       return res;
     };

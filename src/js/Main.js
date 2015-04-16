@@ -1,23 +1,24 @@
-//:include qubit/opentag/GLOBAL.js
+//:include GLOBAL.js
 //:include qubit/opentag/Log.js
 //:include qubit/Cookie.js
 //:include qubit/opentag/compat/OldTagRunner.js
 //:include html/UVListener.js
+//:include qubit/Define.js
 
 /** EXCLUDE FROM NEW API **/
 
-qubit.opentag.Log.LEVEL = 0;
-qubit.opentag.Log.COLLECT_LEVEL = 3;
+qubit.opentag.Log.setLevel(0);
+qubit.opentag.Log.setCollectLevel(3);
 
 var log = new qubit.opentag.Log("Main -> ");
 
 (function () {
-  qubit.opentag.Log.LEVEL = qubit.opentag.Log.LEVEL_NONE;
-  qubit.opentag.Log.COLLECT_LEVEL = 3;
+  qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_NONE);
+  qubit.opentag.Log.setCollectLevel(3);
   
   /*debug*/
-  qubit.opentag.Log.LEVEL = qubit.opentag.Log.LEVEL_INFO;
-  qubit.opentag.Log.COLLECT_LEVEL = 5;
+  qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_INFO);
+  qubit.opentag.Log.setCollectLevel(4);
   /*~debug*/
   
   var filters = [],
@@ -28,7 +29,8 @@ var log = new qubit.opentag.Log("Main -> ");
     containerName = "Opentag",
     profileName = "",
     tellLoadTimesProbability = 0,
-    maxCookieLength = 3000,
+    containerDisabled = false,
+    maxCookieLength = 1000,
     pingServerUrl = null,
     qtag_track_session = false,
     qtag_domain = "",
@@ -38,20 +40,21 @@ var log = new qubit.opentag.Log("Main -> ");
 
   /*NEVER INCLUDE*/
   //this content is available ONLY in direct main-src page.
-  filters = window.filters || filters;
-  pageVars = window.pageVars || pageVars;
-  scriptLoaders = window.scriptLoaders || scriptLoaders;
-  delayDocWrite = false || window.delayDocWrite,
-  qTagClientId = window.qTagClientId || qTagClientId,
-  containerName = window.containerName || containerName,
-  profileName = window.profileName || "",
-  tellLoadTimesProbability = window.tellLoadTimesProbability || 
+  filters = GLOBAL.filters || filters;
+  pageVars = GLOBAL.pageVars || pageVars;
+  scriptLoaders = GLOBAL.scriptLoaders || scriptLoaders;
+  delayDocWrite = false || GLOBAL.delayDocWrite,
+  qTagClientId = GLOBAL.qTagClientId || qTagClientId,
+  containerName = GLOBAL.containerName || containerName,
+  profileName = GLOBAL.profileName || "",
+  tellLoadTimesProbability = GLOBAL.tellLoadTimesProbability || 
           tellLoadTimesProbability,
-  maxCookieLength = window.maxCookieLength || maxCookieLength,
-  pingServerUrl = window.pingServerUrl || pingServerUrl,
+  containerDisabled = GLOBAL.containerDisabled || containerDisabled,
+  maxCookieLength = GLOBAL.maxCookieLength || maxCookieLength,
+  pingServerUrl = GLOBAL.pingServerUrl || pingServerUrl,
   qtag_track_session = false || qtag_track_session,
-  qtag_domain = window.qtag_domain || qtag_domain,
-  scriptURL = window.scriptURL || scriptURL;
+  qtag_domain = GLOBAL.qtag_domain || qtag_domain,
+  scriptURL = GLOBAL.scriptURL || scriptURL;
   /*~NEVER INCLUDE*/
   
   //defaults
@@ -81,6 +84,9 @@ var log = new qubit.opentag.Log("Main -> ");
   } catch (e) {}
   try {
     mainConfig.tellLoadTimesProbability = tellLoadTimesProbability;
+  } catch (e) {}
+  try {
+    mainConfig.containerDisabled = containerDisabled;
   } catch (e) {}
   try {
     mainConfig.maxCookieLength = maxCookieLength;
@@ -147,7 +153,7 @@ var log = new qubit.opentag.Log("Main -> ");
     /*debug*/
     selfDebug = true;
     /*~debug*/
-    
+    var otRef = qubit.opentag;
     var debugToolRequested = requestedDebugTool();
     var debugRequested = debugToolRequested || requestedDebugMode();
     
@@ -175,13 +181,21 @@ var log = new qubit.opentag.Log("Main -> ");
         debugScript.src = "//s3-eu-west-1.amazonaws.com/opentag/opentag-" +
         mainConfig.qTagClientId + "-" + mainConfig.profileName + "-debug.js";
       }
-      if (!window.QUBIT_DEBUG_TOOL_LOADED) {
-        window.QUBIT_DEBUG_TOOL_LOADED = true;
-        window.TAGSDK_NS_OVERRIDE = true;
-        document.getElementsByTagName("head")[0].appendChild(debugScript);
+      
+      if (!otRef.Log) {
+        //clear existing tagsdk! And only for Log attaching purpose!
+        GLOBAL.TAGSDK_NS_OVERRIDE = true;
+      } else {
+        GLOBAL.TAGSDK_NS_OVERRIDE = false;
       }
+      
+      document.getElementsByTagName("head")[0].appendChild(debugScript);
       //stop
       return;
+    }
+
+    if (otRef.Log) {
+      GLOBAL.TAGSDK_NS_OVERRIDE = false;
     }
 
     new qubit.opentag.OldTagRunner(mainConfig).run();

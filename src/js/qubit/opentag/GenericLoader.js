@@ -1,9 +1,12 @@
-//:include GLOBAL.js
+//:include qubit/Define.js
+//:include qubit/Events.js
 //:include qubit/opentag/Utils.js
 //:include qubit/opentag/Timed.js
 //:include qubit/opentag/TagsUtils.js
 //:include qubit/opentag/TagHelper.js
 //:include qubit/opentag/Log.js
+
+/* global EMPTY_FUN, qubit */
 
 /*
  * TagSDK, a tag development platform
@@ -115,6 +118,16 @@
     this.urlsLoaded = 0;
     this.urlsFailed = 0;
     
+    //consider moving all direct events here
+    this.events = new qubit.Events({});
+    
+    this._depLoadedHandler = function () {
+      if (this.dependenciesLoaded() && this.awaitingDependencies) {
+        this.log.FINE("All dependencies has run successfuly. Triggering load.");
+        this._triggerLoadingAndExecution();
+      }
+    }.bind(this);
+    
     this.config = {
       /**
        * Name of the tag. Note that Tag's name must be unique in container.
@@ -191,7 +204,7 @@
        * - unset property will default to document.body
        * 
        * - Any other string value will resolve to 
-       *  `document.getelementsById(string)`
+       *  `document.getElementsById(string)`
        *  
        * Way the HTML passed with `html` config property is injected is 
        * controlled by `locationPlaceHolder` property.
@@ -203,7 +216,7 @@
        * Option will cause this script to inject location be immediately marked
        * as ready.
        */
-      dontWaitForBody: false,
+      dontWaitForInjectionLocation: false,
       /**
        * By default we do care for not loading scripts with same href value.
        * Set this property to false in order to load script any time its 
@@ -220,7 +233,7 @@
        * @cfg {Boolean} [loadDependenciesOnLoad=false]
        */
       loadDependenciesOnLoad: false
-  };
+    };
     
     /**
      * If checked and usesDocumentWrite is true, tag will be instructed to 
@@ -281,7 +294,8 @@
       }
       
       if (config.dependencies) {
-        this.dependencies = config.dependencies.concat(this.dependencies);
+        var deps = config.dependencies.concat(this.getDependencies());
+        this.setDependencies(deps);
       }
       
       if (config.PACKAGE) {
@@ -292,7 +306,7 @@
     }
   }
   
-  Utils.clazz("qubit.opentag.GenericLoader", GenericLoader);
+  qubit.Define.clazz("qubit.opentag.GenericLoader", GenericLoader);
   
   /**
    * @event Empty on init event.
@@ -319,23 +333,12 @@
    * 
    * This is a direct method used to execute `script` function on the loader.
    * It does check if config containe `script` property and will replace current
-   * `this.script` function with passed configuration. If the `config.script` 
-   * is a string, it will be used to construct function to be run (not eval 
-   * will be run), the functi0on is always executed with tag scope applied.
+   * `this.script` function with passed configuration.
    * This function is not intended to be use outside class and therefore is
-   * strictly private.
-   * @private
+   * strictly protected.
+   * @protected
    */
   GenericLoader.prototype._executeScript = function () {
-    if (this.config && this.config.script) {
-      if (typeof (this.config.script) === "function") {
-        this.script = this.config.script;
-      } else {
-        var expr = this.replaceTokensWithValues(String(this.config.script));
-        this.script = Utils.expressionToFunction(expr).bind(this);
-      }
-    }
-    
     this.log.INFO("executing main script...");
     var success = false;
     
@@ -345,13 +348,14 @@
       this.log.INFO("executed without errors.");
     } catch (ex) {
       this.addState("EXECUTED_WITH_ERRORS");
+      this.executedWithErrors = new Date().valueOf();
       this.log.ERROR("Error while executing: " + ex);
-      this.log.ERROR("There was an error while executing instance of tag: "
-              + this.CLASS_NAME + " from package: " + this.PACKAGE_NAME);//L
+      this.log.ERROR("There was an error while executing instance of tag: " +
+              this.CLASS_NAME + " from package: " + this.PACKAGE_NAME);//L
       this.log.ERROR(ex, true);
       this._onError(ex);
     } finally {
-      this.onExecute(success);
+      this._onExecute(success);
     }
   };
   
@@ -367,13 +371,15 @@
   /**
    * Strictly private timeout worker. Do not use.
    * @private
+   * @param {Array} chain array for recursive steps.
+   * @returns {Number}
    */
   GenericLoader.prototype._getTimeout = function (chain) {
     var tout = +this.config.timeout;
-    if (tout !== -1 && this.dependencies.length > 0) {
+    var deps = this.getDependencies();
+    if (tout !== -1 && deps.length > 0) {
       var max = 0;
       chain = chain || [];
-      var deps = this.dependencies;
       var present = (Utils.indexInArray(chain, this) !== -1);
       if (!present) {
         chain[chain.length] = this;
@@ -392,7 +398,14 @@
     }
     return tout;
   };
-  
+  /**
+   * @private
+   * Strictly private. May be disposed at any time.
+   * @param {Boolean} noErrors if error occured is passed.
+   */
+  GenericLoader.prototype._onExecute = function (noErrors) {
+    this.onExecute(noErrors);
+  };
   /**
    * @event
    * onExecute event - will be triggered only if main execution occurs.
@@ -416,7 +429,7 @@
       var loc = TagsUtils.getHTMLLocationForTag(this);
       if (loc && this._securedWrites && this._securedWrites.length > 0) {
         this.log.FINE("flushing document.write proxy array");
-        this.log.FINE("flushing: "+ this._securedWrites.join("\n"));
+        this.log.FINE("flushing: " + this._securedWrites.join("\n"));
         var append = (this.config.locationPlaceHolder === "END");
         ret = TagsUtils.flushDocWritesArray(
             this._securedWrites,
@@ -483,7 +496,7 @@
   GenericLoader.prototype.before = function () {
     this.log.FINE("running before handler...");
     this.beforeRun = new Date().valueOf();
-    try{ 
+    try { 
       this.onBefore();
     } catch (ex) {
       this.log.ERROR("onBefore error: " + ex);
@@ -510,9 +523,9 @@
    * @param success {Boolean} If the script executed without errors
    */
   GenericLoader.prototype.after = function (success) {
-    this.log.FINE("running after handler...");
+    this.log.FINE("running after...");
     this.afterRun =  new Date().valueOf();
-    try{ 
+    try { 
       this.onAfter(success);
     } catch (ex) {
       this.log.ERROR("onAfter error: " + ex);
@@ -532,23 +545,27 @@
    * By using this function one can be sure that script will be executed only
    * once until script is reset.
    * Use this function if you must be ensured that execution occurs only once.
-   * @param {Boolean} ignoreDeps if ignore dependencies and run immediately. 
    */
-  GenericLoader.prototype.runOnce = function (ignoreDeps) {
+  GenericLoader.prototype.runOnce = function () {
     if (!this._runOnceTriggered && !this.scriptExecuted) {
       this._runOnceTriggered = new Date().valueOf();
-      this.run(ignoreDeps);
+      this.run();
     } else {
       this.log.FINEST("runOnce has been already executed.");
     }
   };
   
   /**
-   * This properety will cause ALL loaders/tags/libraries to cancel running on
-   * `run()` time. It is convinient property to controll that any tag will not
-   * be run after setting to `true`.
+   * 
+   * GenericLoader.CANCEL_ALL properety will cause ALL loaders/tags/libraries
+   * to cancel running on `run()` time. It is convinient property to controll 
+   * that any tag will not be run after setting to `true`.
+   * 
+   * @property {Boolean} CANCEL_ALL If set to true, all tags, if not run yet,
+   * will be cancelled - no tag will run.
+   * @static
    */
-  GenericLoader.CANCELL_ALL = false;
+  GenericLoader.CANCEL_ALL = false;
   
   /**
    * It tells how many times loader was run.
@@ -562,12 +579,10 @@
    * will be ignored.
    * If there is no dependencies to load, script will be invoked immediately.
    * This method has no effect is tag is in running state (is currently loading).
-   * @param {Boolean} ignoreDependencies if true, loader will not wait 
-   * for dependencies to load
    * @returns {Boolean} false if tag is currently loading, true otherwise.
    */
-  GenericLoader.prototype.run = function (ignoreDependencies) {
-    if (this.cancelled || GenericLoader.CANCELL_ALL) {
+  GenericLoader.prototype.run = function () {
+    if (this.cancelled || GenericLoader.CANCEL_ALL) {
       this._handleCancel();
       return false;
     }
@@ -584,14 +599,75 @@
     
     this.lastRun = this.isRunning = new Date().valueOf();
     this.runCounter++;
+    this._ignoreDeps = !!this.ignoreDependencies;
+    if (!this._ignoreDeps && !this.dependenciesLoaded()) {
+      this.log.FINE("Dependencies (other loaders) not ready. " +
+              " Attaching handlers.");//L
+      // as all deps are not loaded - there will be at least one that will call
+      // success event where this parent will listen. Cannot continue otherwise.
+      this._attachDepsEventsToContinue();
+      return false;
+    }
+    
+    return this._triggerLoadingAndExecution();
+  };
+  
+  /**
+   * @private strictly private. Execution load and trigger.
+   * @returns {Boolean}
+   */
+  GenericLoader.prototype._triggerLoadingAndExecution =
+          function () {
+    this.awaitingDependencies = -new Date().valueOf();
     
     //make sure its loaded before execution
-    this.load(ignoreDependencies);
+    this.load();
     
-    if (ignoreDependencies) {
+    if (this._ignoreDeps) {
       this.execute();
     } else {
       this.waitForDependenciesAndExecute();
+    }
+    return true;
+  };
+  
+  /**
+   * @private
+   * Strictly private.
+   * @returns {undefined}
+   */
+  GenericLoader.prototype._attachDepsEventsToContinue = function () {
+    this.log.FINE("Attaching success events to dependencies...");
+    //important lock and state indicator!
+    this.awaitingDependencies = new Date().valueOf();
+    
+    var deps = this.getDependencies();
+    for (var i = 0; i < deps.length; i++) {
+      try {
+        deps[i].events.on("success", this._depLoadedHandler);
+      } catch (ex) {
+        this.log.WARN("Cannot set event for dependency -> ", deps[i]);
+        this.log.WARN("Exception: ", ex);
+      }
+    }
+    
+    this.log.FINE("Attached " + deps.length + " handlers.");
+  };
+  
+  /**
+   * Returns true only if all dependant loaders were successfuly run.
+   * 
+   * @returns {Boolean}
+   */
+  GenericLoader.prototype.dependenciesLoaded = function () {
+    var deps = this.getDependencies();
+    for (var i = 0; i < deps.length; i++) {
+      if (deps[i] !== this) {
+        var executed = (+deps[i].scriptExecuted) > 0;
+        if (!executed) {
+          return false;
+        }
+      }
     }
     return true;
   };
@@ -677,14 +753,14 @@
       this._handleCancel();
       return;
     }
-    
+
     if (this.scriptExecuted) {
       return; //execution can be called only if script execution state is unset
     }
-    
+
     var finished = true;
-    
-    if(this.shouldWaitForDocWriteProtection()) {
+
+    if (this.shouldWaitForDocWriteProtection()) {
       finished = false;
     } else {
       if (!this._beforeEntered) {
@@ -692,7 +768,7 @@
         var cancel = false;
 
         try {
-            cancel = this.before();
+          cancel = this.before();
         } catch (ex) {
           //decision changed: failured before callback must stop execution.
           this.log.ERROR("`before` thrown an exception");
@@ -707,7 +783,7 @@
           return;
         }
       }
-      finished = 
+      finished =
               this.loadExecutionURLsAndHTML(this._triggerExecution.bind(this));
     }
     
@@ -738,9 +814,22 @@
       if (this.cancelled) {
         this._handleCancel();
         return false;
-      } else if (!this.afterRun) {
-        this.afterRun =  new Date().valueOf();
-        this.after(this.scriptExecuted > 0);
+      } else {
+        var successful = this.scriptExecuted > 0;
+        try {
+          if (!this.afterRun) {
+            this.afterRun =  new Date().valueOf();
+            this.after(successful);
+          }
+        } catch (ex) {
+          this.executedWithErrors = new Date().valueOf();
+        }
+        if (!this.executedWithErrors) {
+          //this event will cause other awaiting dependencies to run
+          if (successful) {
+            this.events.call("success");
+          }
+        }
       }
       this._flushDocWrites();
       this._markFinished();
@@ -782,6 +871,12 @@
   
   /**
    * @event
+   * Triggered when tag is cancelled.
+   */
+  GenericLoader.prototype.onCancel = EMPTY_FUN;
+  
+  /**
+   * @event
    * Triggered if tag is loading and cancelled method is triggered.
    */
   GenericLoader.prototype.onFinished = EMPTY_FUN;
@@ -792,6 +887,15 @@
    * @returns {Boolean}
    */
   GenericLoader.prototype.shouldWaitForDocWriteProtection = function () {
+//    if (GenericLoader.LOCK_DOC_WRITE !== this && 
+//        GenericLoader.LOCK_DOC_WRITE) {
+//      //this condition holds tag to wait at any other tag using doc write
+//      //currently TagsUtils.writeScriptURL checks if redirects of doc write
+//      //are set and will unlock it for current execution of tags that can use 
+//      //doc write and dont need to wait.
+//      //KEEP this block for debugging reasons.
+//      return true;
+//    }
     if (this.willSecureDocumentWrite()) {
       //we can use more generic check
       if (!GenericLoader.LOCK_DOC_WRITE) {
@@ -816,7 +920,8 @@
    * It will behave exactly as `this.run(true)`
    */
   GenericLoader.prototype.runWithoutDependencies = function () {
-    this.run(true);
+    this.ignoreDependencies = true;
+    this.run();
   };
   
   /**
@@ -938,18 +1043,18 @@
   GenericLoader.prototype.STATE = {
     INITIAL: 0,
     STARTED: 1,
-    CANCELLED: 1*2,
-    LOADING_DEPENDENCIES: 2*2,
-    LOADED_DEPENDENCIES: 4*2,
-    LOADING_URL: 8*2,
-    LOADED_URL: 16*2,
-    EXECUTED: 32*2,
-    EXECUTED_WITH_ERRORS: 64*2,
-    FAILED_TO_LOAD_DEPENDENCIES: 128*2,
-    FAILED_TO_LOAD_URL: 256*2,
-    FAILED_TO_EXECUTE: 512*2,
-    TIMED_OUT: 1024*2,
-    UNEXPECTED_FAIL: 2048*2
+    LOADING_DEPENDENCIES: 2,
+    LOADED_DEPENDENCIES: 4,
+    LOADING_URL: 8,
+    LOADED_URL: 16,
+    EXECUTED: 32,
+    EXECUTED_WITH_ERRORS: 64,
+    FAILED_TO_LOAD_DEPENDENCIES: 128,
+    FAILED_TO_LOAD_URL: 256,
+    FAILED_TO_EXECUTE: 512,
+    TIMED_OUT: 1024,
+    UNEXPECTED_FAIL: 2048,
+    CANCELLED: 2048 * 2
   };
   
   /**
@@ -1008,7 +1113,7 @@
      * has been finished.
      */
     this.loadedDependencies = new Date().valueOf();
-    this.onDependenciesLoaded();
+    this.onAllDependenciesLoaded();
   };
   
   /**
@@ -1045,44 +1150,67 @@
      */
     this.waitForDependenciesFinished = new Date().valueOf();
     
-    if (this.dependenciesLoaded()) {
-      this._markLoadedSuccesfuly();
+    //normally body injection location is one of dependencies, by adding 
+    //condition here, full body load need and interactiveBodyLoadNeed is taken
+    //out of timeout procedure. If removed here, locatrions will be still 
+    //checked to exist but timeout will apply.
+    var fullBodyNeededAndUnLoaded = this._fullBodyNeededAndUnLoaded();
+    var interactiveBodyNeededButNotReady = this._bodyNeededButNotAvailable();
+    
+    if (fullBodyNeededAndUnLoaded || interactiveBodyNeededButNotReady) {
+      this.waitForDependenciesFinished = false;
     } else {
-      if (this._loadingOutOfTimeFrames()) {
-        this.loadingTimedOut = new Date().valueOf();
-        if (this.dependenciesLoaded(true)) {//give last chance for defaults
-          this._markLoadedSuccesfuly();
-        } else {
-          this.log.WARN("timed out while loading dependencies.");
-          this.addState("TIMED_OUT");
-          this.loadingDependenciesFailed = new Date().valueOf();
-          this._triggerOnLoadTimeout();
-        }
+      if (!this.timeoutCountdownStart) {
+        //start count down here.
+        this.timeoutCountdownStart = new Date().valueOf();
+      }
+      //check deps and proceed
+      if (this.allDependenciesLoaded()) {
+        this._markLoadedSuccesfuly();
       } else {
-        //wait for dependencies, no matter what.
-        //@TODO let it be done by a nicer tool... single timeout processor
-        this.waitForDependenciesFinished = false;
-        this._setTimeout(_waitForDependencies.bind(this), 75);
+        if (this._loadingOutOfTimeFrames()) {
+          this.loadingTimedOut = new Date().valueOf();
+          if (this.allDependenciesLoaded(true)) {//give last chance for defaults
+            this._markLoadedSuccesfuly();
+          } else {
+            this.log.WARN("timed out while loading dependencies.");
+            this.addState("TIMED_OUT");
+            this.loadingDependenciesFailed = new Date().valueOf();
+            this._triggerOnLoadTimeout();
+          }
+        } else {
+          //wait for dependencies, no matter what.
+          // @TODO let it be done by a nicer tool... single timeout processor
+          this.waitForDependenciesFinished = false;
+        }
       }
     }
+    
     if (!this.waitForDependenciesFinished) {
+      this._setTimeout(_waitForDependencies.bind(this), 65);
       /*log*/ //make some nice counter logs count down...
       var diff = (new Date().valueOf() - this.loadStarted);
-      var freq = 4000;
+      var freq = 3000;
       var curr = diff / this.getTimeout();
       var steps = Math.ceil(this.getTimeout() / freq);
       
       this._lockObject.curr = curr;
       
       Timed.maxFrequent(function () {
-        this.log.FINE("Waiting for dependencies, counting... "
-                + this._lockObject.count++ + " (" + steps + ")");//L
+        if (fullBodyNeededAndUnLoaded) {
+          this.log.FINE("Full body needed. Waiting for full body.");
+        }
+        if (interactiveBodyNeededButNotReady) {
+          this.log.FINE("Interactive body needed. Waiting for body.");
+        }
+        this.log.FINE("Waiting for dependencies, counting... " +
+                this._lockObject.count++ + " (" + steps + ")");//L
       }.bind(this), freq, this._lockObject);
       /*~log*/
     } else {
       this.addState("LOADED_DEPENDENCIES");
     }
-  };
+  }
   
   /**
    * Checker indicating if all dependencies are satisfied.
@@ -1090,7 +1218,7 @@
    * @param {Array} arrayToAdd optional failures to write array
    * @returns {Boolean}
    */
-  GenericLoader.prototype.dependenciesLoaded =
+  GenericLoader.prototype.allDependenciesLoaded =
           function (tryDefaults, arrayToAdd) {
     return this.getDependenciesToBeLoaded(tryDefaults, arrayToAdd).length === 0;
   };
@@ -1111,21 +1239,22 @@
     var failures = arrayToAdd || [];
 
     if (!this.injectionLocationReady()) {
-      failures.push("html injection location");
+      failures.push("injection location");
     }
-    
-    for(var i = 0; i < this.dependencies.length; i++) {
-      if (this.dependencies[i] !== this) {
-        var state = this.dependencies[i].scriptExecuted;
-        if (!state || +state <= 0) {
-          var name = this.dependencies[i].config ?
-            this.dependencies[i].config.name : "anonymous";
+    var i;
+    var deps = this.getDependencies();
+    for (i = 0; i < deps.length; i++) {
+      if (deps[i] !== this) {
+        var executed = (+deps[i].scriptExecuted) > 0;
+        if (!executed) {
+          var name = deps[i].config ?
+            deps[i].config.name : "anonymous";
           failures.push("dependant Tag with name -> " + name);
         }
       }
     }
     
-    for(var i = 0; i < this.genericDependencies.length; i++) {
+    for (i = 0; i < this.genericDependencies.length; i++) {
       var ready = this.genericDependencies[i](this);
       if (!ready) {
         failures.push("this.genericDependencies[" + i + "] (index: " + i + ")");
@@ -1141,7 +1270,7 @@
           } else {
             this.log.FINE("Dependencies check: No basic dependencies.");
           }
-      }.bind(this), 5000, this._lockObjectDepsLoaded);
+        }.bind(this), 5000, this._lockObjectDepsLoaded);
       /*~log*/
     }
     
@@ -1157,11 +1286,88 @@
   GenericLoader.prototype.docWriteAsksToWaitForBody = function () {
     //tag must wait for location if asynchronous, or instructed to protect
     //writes
-    return !!(this.config.delayDocWrite && this.config.usesDocumentWrite);
+    return !!(this.delayDocWrite && this.config.usesDocumentWrite);
   };
   
   /**
-   * This function, unlikely as `injectionLocationReady` checks phisically if
+   * @private
+   * Exclusive helper checking if tag needs to hold on unlimited time with
+   * loading till body is available and interactive (document.body exists).
+   * @returns {Boolean}
+   */
+  GenericLoader.prototype._bodyNeededButNotAvailable = function () {
+    if (this._dontWaitForInjections()) {
+      return false;
+    }
+    //if it is body, tag needs to wait for body
+    //once needed check if loaded.
+    return this._isBodyLocationNeeded() && !TagsUtils.bodyAvailable();
+  };
+  
+  /**
+   * @private
+   * Private helper - indicated is body location is needed.
+   * @returns {Boolean}
+   */
+  GenericLoader.prototype._isBodyLocationNeeded = function () {
+    //synchronous load is excluded from awaiting for body
+    if (!this.isLoadingAsynchronously()) {
+      return false;
+    }
+    
+    if (this._isBodyLocationSet()) {
+        return true;
+    } else {
+      var atHead = (this.config.locationObject === "HEAD");
+      return atHead && (this.config.locationPlaceHolder === "END");
+    }
+  };
+  
+  /**
+   * @private
+   * Strictly private.
+   * @returns {Boolean}
+   */
+  GenericLoader.prototype._isBodyLocationSet = function () {
+    var locObj = this.config.locationObject;
+    return !locObj || (locObj === "BODY");
+  };
+  
+  /**
+   * @private
+   * @returns {Boolean} true if full body is needed and unloaded
+   */
+  GenericLoader.prototype._fullBodyNeededAndUnLoaded = function () {
+    if (this._dontWaitForInjections()) {
+      return false;
+    }
+    
+    var needed = false;
+    if (this._isBodyLocationNeeded()) {
+      needed = (this.config.locationPlaceHolder === "END");
+    }
+    
+    needed = needed || (
+        this.fullbodyNeeded ||
+        this.docWriteAsksToWaitForBody()
+      );
+    
+    return needed && !Utils.bodyReady();
+  };
+  /**
+   * @private
+   * Strictly private. Override helper.
+   * @returns {Boolean} 
+   */
+  GenericLoader.prototype._dontWaitForInjections = function () {
+    return this.config.dontWaitForInjectionLocation ||
+            this.dontWaitForInjectionLocation || 
+            GenericLoader.dontWaitForInjectionLocation;
+  };
+  
+  /**
+   * @protected
+   * This function checks phisically if
    * loaction for injections is ready.
    * Injection location is necessary for:
    * - html injector
@@ -1169,23 +1375,16 @@
    * @returns {Boolean}
    */
   GenericLoader.prototype.injectionLocationReady = function () {
-    // if this is synchronous script then mark location as any time ready
-    // ---> (!this.injectionLocationReady()) <---
-    // please note, if location is not present, document.write action will be
-    // performed
-    
-    if (this.docWriteAsksToWaitForBody() && !Utils.bodyReady()) {
-      return false;
-    }
-    
-    if (this.config.dontWaitForBody) {
+    if (this._dontWaitForInjections()) {
       return true;
     }
-    
-//    if (!this.config.html && !this.config.waitForBody) {
-//      return true;
-//    }
-//    
+    // currently it is always false with current tag run-flow
+    // tag can still be synchronous and full body is needed:
+    // delay doc write case
+    if (this._fullBodyNeededAndUnLoaded()) {
+      return false;
+    }
+    //async check happens after the full body load needed as takes over it.
     if (!this.isLoadingAsynchronously()) {
       return true;
     }
@@ -1202,17 +1401,36 @@
     if (this.getTimeout() < 0) {
       return false;
     }
-    return (new Date().valueOf() - this.loadStarted) > 
+    return (new Date().valueOf() - this.timeoutCountdownStart) > 
       this.getTimeout();
   };
   
   /**
    * Function used as a worker for processing loaders's other dependant tags.
    * It is a looping trigger to call "load" on dependencies.
-   * `this.dependencies` array containes other dependant loaders.
+   * `this.getDependencies()` array containes other dependant loaders.
    */
   GenericLoader.prototype.loadDependencies = function () {
     this._loadDependencies();
+  };
+  
+  /**
+   * Dependant loaders array getter.
+   * @returns {Array} dependencies array, instances of loaders this loader
+   *                  is dependant on. The array can be used to add more
+   *                  dependencies.
+   */
+  GenericLoader.prototype.getDependencies = function () {
+    return this.dependencies;
+  };
+  
+  /**
+   * Setter for dependant loaders.
+   * @param {Array} deps dependencies array. Array of 
+   *                 qubit.opentag.GenericLoader instances.
+   */
+  GenericLoader.prototype.setDependencies = function (deps) {
+    this.dependencies = deps;
   };
   
   /**
@@ -1222,12 +1440,12 @@
    */
   GenericLoader.prototype._loadDependencies = function (chain) {
     chain = chain || [];
-    var deps = this.dependencies;
+    var deps = this.getDependencies();
     var present = Utils.indexInArray(chain, this) !== -1;
     if (!present) {
       chain[chain.length] = this;
       for (var i = 0; i < deps.length; i++) {
-          deps[i].load(chain);
+        deps[i].load(chain);
       }
     }
   };
@@ -1285,7 +1503,7 @@
    * @event
    * Triggered when loader's dependencies are loaded.
    */
-  GenericLoader.prototype.onDependenciesLoaded = EMPTY_FUN;
+  GenericLoader.prototype.onAllDependenciesLoaded = EMPTY_FUN;
   
   /**
    * @event onBeforeLoad
@@ -1308,9 +1526,8 @@
    * 
    * Can be run only once. `load` function is an entry point for any process 
    * leading to run/execute the tag.
-   * @param {Boolean} ignoreDependencies if ignore dependencies
    */
-  GenericLoader.prototype.load = function (ignoreDependencies) {
+  GenericLoader.prototype.load = function () {
     if (this.loadStarted) {
       return;
     } else {
@@ -1323,6 +1540,7 @@
       }
     }
 
+    //by default dependencies (other tags) are not loaded automatically
     this.addState("LOADING_DEPENDENCIES");
     this.log.INFO("Load started.");
     
@@ -1331,12 +1549,12 @@
        * @property {Number} loadStarted Timestamp telling when loading process
        *  has started.
        */
-      if (!ignoreDependencies && this.config.loadDependenciesOnLoad) {
+      if (!this._ignoreDeps && this.config.loadDependenciesOnLoad) {
         this.loadDependencies();
       }
     } catch (ex) {
-      this.log.ERROR("loadDependencies: unexpected exception occured: \n"
-              + ex + "\ntrying to finish... ");//L
+      this.log.ERROR("loadDependencies: unexpected exception occured: \n" +
+              ex + "\ntrying to finish... ");//L
       throw ex;
     }
     
@@ -1380,7 +1598,7 @@
         this._onError(message);
         this.addState("FAILED_TO_LOAD_URL");
         this.urlsLoaded = -new Date().valueOf();
-        try{
+        try {
           this.scriptLoadingFailed = true;
           if (callback) {
             callback(false);
@@ -1422,7 +1640,6 @@
         this.loadURL(url, function (success) {
           this._singleUrlLoadHandler(success, urls, callback);
         }.bind(this));
-        
       }
     } catch (ex) {
       this.log.ERROR("loadURLs thrown unexpected exception! : " + ex);
@@ -1466,8 +1683,10 @@
    * Script URL loader. 
    * @param url {String} url, overriding URL to use
    * @param callback {Function} callback optional
+   * @param location {String} location to append scripts (optional), by default
+   *                this.config.urlLocation is used
    */
-  GenericLoader.prototype.loadURL = function (url, callback) {
+  GenericLoader.prototype.loadURL = function (url, callback, location) {
     var passedUrl = url;
     this.addState("LOADING_URL");
     TagsUtils.loadScript({
@@ -1483,7 +1702,7 @@
       }.bind(this),
       onerror: function () {
         this.log.ERROR("error loading " + passedUrl);
-        try{
+        try {
           if (callback) {
             callback(false);
           }
@@ -1493,7 +1712,7 @@
         }
       }.bind(this),
       url: passedUrl,
-      node: this.config.urlLocation || document.body,
+      node: location || this.config.urlLocation,
       async: this.isLoadingAsynchronously(),
       noMultipleLoad: this.config.noMultipleLoad
     });
@@ -1534,6 +1753,8 @@
     this._lastRun = u;
     this.cancelled = u;
     this._beforeEntered = u;
+    this.awaitingDependencies = u;
+    this.timeoutCountdownStart = u;
     this.addState("INITIAL");
   };
   
@@ -1547,7 +1768,7 @@
 //            (this.config.url && this.config.url.length > 0);
 //    return becauseOfDocWriteOverrideAndMakeItAsync ||
 //      !!(this.config.async || this.forceAsynchronous);
-    //@TODO add more sophisticated async judgement:
+    // @TODO add more sophisticated async judgement:
     // any URL loading should be triggereing async
     // any html containing scripts with src also shouold cause delay
     // only CHROME has synchronous onload callbvacks, but chrome is not the only

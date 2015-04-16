@@ -1,4 +1,3 @@
-//:include GLOBAL.js
 //:include qubit/Define.js
 
 /*
@@ -8,7 +7,7 @@
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
 
-(function() {
+(function () {
   var cookieAlphabet = 
           "abcdefghijklmnopqrstuvwxyz" + "0123456789" +
           "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "*!-#$&+()@" +
@@ -45,9 +44,8 @@
    * @returns {String} decoded string
    */
   Cookie.decode = function (string) {
-    return decodeURIComponent(string);
+    return unescape(string); //old version compatibility
   };
-  
   /**
    * @static
    * Default encoding method for cookie. Defaulting to `encodeURIComponent`.
@@ -56,7 +54,7 @@
    * @returns {String} encoded string
    */
   Cookie.encode = function (string) {
-    return encodeURIComponent(string);
+    return escape(string);
   };
   
   /**
@@ -67,10 +65,10 @@
    * @param {String} value cookie string to be set
    * @param {Number} days days to expire
    * @param {String} domain cookie domain
-   * @param {Boolean} encoded if should encode value and name with default
+   * @param {Boolean} notEncoded if should NOT encode value and name with default
    *    method.
    */
-  Cookie.set = function(name, value, days, domain, encoded) {
+  Cookie.set = function (name, value, days, domain, notEncoded) {
     var expires;
     if (days) {
       var date = new Date();
@@ -80,7 +78,7 @@
       expires = "";
     }
     
-    if (encoded) {
+    if (!notEncoded) {
       name = Cookie.encode(name);
       value = Cookie.encode(value);
     }
@@ -99,11 +97,12 @@
    * Get cookie function.
    * 
    * @param {String} name cookie name
-   * @param {Boolean} decoded should cookie be decoded using default method.
+   * @param {Boolean} notDecoded should NOT cookie be decoded using default
+   *  method. If true, cookie will not be decoded.
    * 
    * @returns {String} cookie string or `null` if not found.
    */
-  Cookie.get = function(name, decoded) {
+  Cookie.get = function (name, notDecoded) {
     var part = name + "=";
     var chunks = document.cookie.split(';');
     for (var i = 0; i < chunks.length; i++) {
@@ -113,7 +112,7 @@
       }
       if (chunk.indexOf(part) === 0) {
         var tmp = chunk.substring(part.length, chunk.length);
-        if (decoded) {
+        if (!notDecoded) {
           tmp = Cookie.decode(tmp);
         }
         return tmp;
@@ -132,7 +131,10 @@
    * @returns {Array} cookies strings array, if there is no cookies, 
    *    empty array is returned.
    */
-  Cookie.getAll = function(name, decoded) {
+  Cookie.getAllForName = function (name, decoded) {
+    if (!name) {
+      return [];
+    }
     var part = name + "=";
     var chunks = document.cookie.split(';');
     var cookies = [];
@@ -151,14 +153,38 @@
     }
     return cookies;
   };
+  /**
+   * Gets all cookies and returns them as pairs [name, value],
+   * decoded by default.
+   * @param {type} decoded
+   * @returns {Array}
+   */
+  Cookie.getAll = function (decoded) {
+    var chunks = document.cookie.split(';');
+    var cookies = [];
+    for (var i = 0; i < chunks.length; i++) {
+      var chunk = chunks[i];
+      while (chunk.charAt(0) === ' ') {
+        chunk = chunk.substring(1, chunk.length);
+      }
+      var name = chunk.substring(0, chunk.indexOf("="));
+      var tmp = chunk.substring(name.length + 1, chunk.length);
+      if (decoded) {
+        tmp = Cookie.decode(tmp);
+      }
+      cookies.push([name, tmp]);
+    }
+    return cookies;
+  };
 
   /**
    * @static
    * Clearing cookie function.
    * 
    * @param {String} name cookie name
+   * @param {String} domain cookie domain
    */
-  Cookie.rm = function(name, domain) {
+  Cookie.rm = function (name, domain) {
     Cookie.set(name, "", -1, domain);
   };
 

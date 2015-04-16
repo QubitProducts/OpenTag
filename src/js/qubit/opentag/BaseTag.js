@@ -1,4 +1,4 @@
-//:include GLOBAL.js
+//:include qubit/Define.js
 //:include qubit/opentag/Utils.js
 //:include qubit/opentag/Timed.js
 //:include qubit/opentag/TagsUtils.js
@@ -52,8 +52,8 @@
       * @cfg filterTimeout
       * @type Number
       */
-      filterTimeout: (config && config.filterTimeout) 
-              || this.FILTER_WAIT_TIMEOUT,
+      filterTimeout: (config && config.filterTimeout) ||
+              this.FILTER_WAIT_TIMEOUT,
       /**
        * Package property indicates where this tag will reside
        * (in what namespace). This property is used by structure packagers to
@@ -116,7 +116,12 @@
        */
       runner: null,
       /**
-       * New API.
+       * If set to true, tag will not be run automatically by container.
+       * @cfg disabled
+       * @type Boolean
+       */
+      disabled: false,
+      /**
        * Indicates this tag will be locked untill `unlock` method will be 
        * called. By default no tag is locked.
        * @cfg locked
@@ -198,7 +203,7 @@
         for (var prop in config.variables) {
           if (config.variables.hasOwnProperty(prop)) {
             var param = this.getParameterByTokenName(prop);
-            if(param) {
+            if (param) {
               var variable = config.variables[prop];
               param.variable = variable;
               if (variable.defaultValue !== undefined) {
@@ -229,7 +234,7 @@
     }
   }
   
-  Utils.clazz("qubit.opentag.BaseTag", BaseTag, GenericLoader);
+  qubit.Define.clazz("qubit.opentag.BaseTag", BaseTag, GenericLoader);
   
   /**
    * Returns value for a token name.
@@ -280,7 +285,7 @@
    */
   BaseTag.prototype.FILTER_WAIT_TIMEOUT = -1;
   
-  BaseTag.prototype.run = function (ignoreDeps) {
+  BaseTag.prototype.run = function () {
     if (this.config.runner) {
       var ret = false;
       try {
@@ -294,7 +299,7 @@
       return ret;
     } else {
       this._runner = false;
-      return this.start(ignoreDeps);
+      return this.start();
     }
   };
   
@@ -328,15 +333,18 @@
   /**
    * Starter used to run tag. It wraps run function only and is ment to be used
    * in runner function body. See `config.runner` property for more details.
-   * @param {Boolean} ignoreDeps same as oin `run()` method
+   * @param {Boolean} force tag may be disabled, use force to force running.
+   * If tag `'run(true)` is called, private forcing property will be set and 
+   * this method will try to force execution.
    * @returns {undefined}
    */
-  BaseTag.prototype.start = function (ignoreDeps) {
+  BaseTag.prototype.start = function () {
     if (!this.locked) {
-      return BaseTag.superclass.prototype.run.call(this, ignoreDeps);
+      return BaseTag.superclass.prototype.run.call(this);
     } else {
+      this.log.WARN("Tag is locked. Running delegated.");
       this._unlock = function () {
-        return BaseTag.superclass.prototype.run.call(this, ignoreDeps);
+        return BaseTag.superclass.prototype.run.call(this);
       }.bind(this);
       return false;
     }
@@ -346,15 +354,14 @@
    * Starter used to run tag only once. It wraps run function only and is ment
    * to be used in runner function body. See `config.runner` property 
    * for more details.
-   * @param {Boolean} ignoreDeps same as oin `run()` method
    * @returns {undefined}
    */
-  BaseTag.prototype.startOnce = function (ignoreDeps) {
+  BaseTag.prototype.startOnce = function () {
     if (!this.locked) {
-      return BaseTag.superclass.prototype.runOnce.call(this, ignoreDeps);
+      return BaseTag.superclass.prototype.runOnce.call(this);
     } else {
       this._unlock = function () {
-        return BaseTag.superclass.prototype.runOnce.call(this, ignoreDeps);
+        return BaseTag.superclass.prototype.runOnce.call(this);
       }.bind(this);
       return false;
     }
@@ -386,7 +393,7 @@
    * @returns {BaseFilter.state}
    */
   BaseTag.prototype.runIfFiltersPass = function () {
-    var state = this.filtersState();
+    var state = this.filtersState(true);
     this.addState("FILTER_ACTIVE");
     
     if (!this.filtersRunTriggered) {
@@ -497,18 +504,18 @@
     AWAITING_CALLBACK: 2,
     FILTERS_FAILED: 4,
     STARTED: 8,
-    CANCELLED: 8*2,
-    LOADING_DEPENDENCIES: 16*2,
-    LOADED_DEPENDENCIES: 32*2,
-    LOADING_URL: 64*2,
-    LOADED_URL: 128*2,
-    EXECUTED: 256*2,
-    EXECUTED_WITH_ERRORS: 512*2,
-    FAILED_TO_LOAD_DEPENDENCIES: 1024*2,
-    FAILED_TO_LOAD_URL: 2048*2,
-    FAILED_TO_EXECUTE: 4096*2,
-    TIMED_OUT: 4096*2*2,
-    UNEXPECTED_FAIL: 4096*2*2*2
+    LOADING_DEPENDENCIES: 16,
+    LOADED_DEPENDENCIES: 32,
+    LOADING_URL: 64,
+    LOADED_URL: 128,
+    EXECUTED: 256,
+    EXECUTED_WITH_ERRORS: 512,
+    FAILED_TO_LOAD_DEPENDENCIES: 1024,
+    FAILED_TO_LOAD_URL: 2048,
+    FAILED_TO_EXECUTE: 4096,
+    TIMED_OUT: 4096 * 2,
+    UNEXPECTED_FAIL: 4096 * 2 * 2,
+    CANCELLED: 4096 * 2 * 2 * 2
   };
   
   /**
@@ -517,7 +524,7 @@
    * of `this.STATE` properties.
    * @param {String} stateName
    */
-  BaseTag.prototype.addState = function(stateName) {
+  BaseTag.prototype.addState = function (stateName) {
     BaseTag.superclass.prototype.addState.call(this, stateName);
 
     try {
@@ -717,6 +724,37 @@
   };
   
   /**
+   * Private method delegating script execution.
+   * When running process executes _scriptExecute, in order:
+   * 
+   * - All dependencies have been met
+   * - onBefore event has been fired
+   * - Script URL has been loaded
+   * - HTML has been injected
+   * 
+   * This is a direct method used to execute `script` function on the loader.
+   * It does check if config containe `script` property and will replace current
+   * `this.script` function with passed configuration. If the `config.script` 
+   * is a string, it will be used to construct function to be run (not eval 
+   * will be run), the functi0on is always executed with tag scope applied.
+   * This function is not intended to be use outside class and therefore is
+   * strictly protected.
+   * @protected
+   */
+  BaseTag.prototype._executeScript = function () {
+    if (this.config && this.config.script) {
+      if (typeof (this.config.script) === "function") {
+        this.script = this.config.script;
+      } else {
+        var expr = this.replaceTokensWithValues(String(this.config.script));
+        this.script = Utils.expressionToFunction(expr).bind(this);
+      }
+    }
+    
+    BaseTag.superclass.prototype._executeScript.call(this);
+  };
+  
+  /**
    * This function is used to replace any string with tokens in it with its 
    * corresponding values. It delegates some of replacement process to 
    * [BaseVariable.prototype.replaceToken](
@@ -733,14 +771,16 @@
     }
     var params = this.parameters;
     
-    if (params) for (var i = 0; i < params.length; i++) {
-      var parameter = params[i];
-      var variable = this.getVariableForParameter(parameter);
-      
-      if (variable) {
-        var token = params[i].token;
-        var value = this.valueForToken(token);
-        string = variable.replaceToken(token, string, value);
+    if (params) {
+      for (var i = 0; i < params.length; i++) {
+        var parameter = params[i];
+        var variable = this.getVariableForParameter(parameter);
+
+        if (variable) {
+          var token = params[i].token;
+          var value = this.valueForToken(token);
+          string = variable.replaceToken(token, string, value);
+        }
       }
     }
     return string;
@@ -755,9 +795,11 @@
   BaseTag.prototype.getParameter = function (name) {
     var params = this.parameters;
     var ret = null;
-    if (params) for (var i = 0; i < params.length; i++) {
-      if (params[i].name === name) {
-        ret = params[i];
+    if (params) {
+      for (var i = 0; i < params.length; i++) {
+        if (params[i].name === name) {
+          ret = params[i];
+        }
       }
     }
     return ret;
@@ -831,8 +873,9 @@
    *  here.
    * @returns {BaseFilter.state}
    */
-  BaseTag.prototype.filtersState = function () {
-    return TagsUtils.filtersState(this.filters, this.session, this);
+  BaseTag.prototype.filtersState = function (runLastSessionFIlterIfPresent) {
+    var run = runLastSessionFIlterIfPresent;
+    return TagsUtils.filtersState(this.filters, this.session, this, run);
   };
   
   /**
@@ -1082,12 +1125,10 @@
    */ 
   BaseTag.prototype.getVariableForParameter = function (param) {
     var variable = TagHelper.validateAndGetVariableForParameter(param);
-
-    if (variable && !variable.config.empty) {
-      //if exists and is not empty variable
-      //ignore parameter has own variable
-    } else if (this.namedVariables && this.namedVariables[param.token]) {
-      //@todo clean it up
+    var existAndIsNotEmpty = variable && !variable.config.empty;
+    if (!existAndIsNotEmpty && 
+            (this.namedVariables && this.namedVariables[param.token])) {
+      // @todo clean it up
       //use alternative value
       variable = _getSetNamedVariable(this, param.token);
     }
@@ -1123,7 +1164,7 @@
         val = this.valueForToken(param.token);
       } else {
         val = variable.getRelativeValue(true);
-      };
+      }
       
       var tmp = {
         name: variable.config.name,
@@ -1132,6 +1173,7 @@
         value: val,
         variable: variable
       };
+      
       res.push(tmp);
       
       /*log*/
@@ -1160,5 +1202,78 @@
     var variable = TagHelper.initPageVariable(tag.namedVariables[token]);
     tag.namedVariables[token] = variable;
     return variable;
+  }
+  
+  BaseTag.prototype._getUniqueId = function () {
+    var id = this.config.name;
+    if (this.config.id) {
+      id = this.config.id;
+    }
+    return id;
+  };
+  
+  var cookiePrefix = "qubit.tag.forceRunning_";
+  var cookieRunAll = "qubit.tag.forceAllToRun";
+  
+  BaseTag.prototype.cookieSaysToRunEvenIfDisabled = function () {
+    var id = this._getUniqueId();
+    var ret = !!qubit.Cookie.get(cookieRunAll);
+    if (!ret) {
+      ret = !!qubit.Cookie.get(cookiePrefix + id);
+    }
+    return ret;
+  };
+  
+  /**
+   * Sets a cookie that will make container running this tag and ignoring  
+   * tag's disabled state (so it will be run by container as normal).
+   * To clear the cookie - use `rmCookieForcingTagToRun()`.
+   */
+  BaseTag.prototype.setCookieForcingTagToRun = function () {
+    var id = this._getUniqueId();
+    qubit.Cookie.set(cookiePrefix + id, "true");
+  };
+  
+  /**
+   * Sets global cookie that make any container ignoring this tag's 
+   * disabled state so this tag will be run as normal.
+   * To clear cookie set by this method, use `rmCookieForcingTagsToRun()`.
+   */
+  BaseTag.setCookieForcingTagsToRun = function () {
+    qubit.Cookie.set(cookieRunAll, "true");
+  };
+  
+  /**
+   * This method clears the cookie set by 
+   * `setCookieForcingTagsToR`setCookieForcingTagsToRun()`.
+   */
+  BaseTag.rmCookieForcingTagsToRun = function () {
+    qubit.Cookie.rm(cookieRunAll);
+  };
+  
+  /**
+   * This function clears cookie set for this tag by 
+   * `setCookieForcingTagToRun()`.
+   */
+  BaseTag.prototype.rmCookieForcingTagToRun = function () {
+    var id = this._getUniqueId();
+    qubit.Cookie.rm(cookiePrefix + id);
+  };
+  
+  /**
+   * Removes all possible cookies that force any disabled tags to run.
+   * It clears all cookies set by any instance of tag with 
+   * `setCookieForcingTagToRun()` and cookie set with 
+   * `setCookieForcingTagsToRun()`.
+   */
+  BaseTag.rmAllCookiesForcingTagToRun = function () {
+    var cookies = qubit.Cookie.getAll();
+    for (var i = 0; i < cookies.length; i++) {
+      var name = cookies[i][0];
+      if (name.indexOf(cookiePrefix) === 0) {
+        qubit.Cookie.rm(name);
+      }
+    }
+    BaseTag.rmCookieForcingTagsToRun();
   };
 }());

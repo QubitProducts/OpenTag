@@ -1,3 +1,4 @@
+//:include qubit/Define.js
 //:include qubit/opentag/Utils.js
 //:include qubit/opentag/pagevariable/BaseVariable.js
 
@@ -26,7 +27,7 @@
     URLQuery.superclass.apply(this, arguments);
   }
   
-  Utils.clazz(
+  qubit.Define.clazz(
     "qubit.opentag.pagevariable.URLQuery",
     URLQuery,
     qubit.opentag.pagevariable.BaseVariable);

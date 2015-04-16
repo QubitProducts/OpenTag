@@ -1,16 +1,15 @@
-//:include GLOBAL.js
 //:include qubit/Define.js
 //:include qubit/Cookie.js
 //:include qubit/compression/Compressor.js
 //:include qubit/opentag/Log.js
 //:include qubit/opentag/compression/Encoder.js
 
-(function() {
+(function () {
   var Define = qubit.Define;
   var Cookie = qubit.Cookie;
   var log = new qubit.opentag.Log("CookieCompressor -> ");
   
-  var global = Define.global();
+  //var global = Define.global();
   var binSupported = false;
   //some servers are very bad. must be manually permitted.
   //!!global.chrome || (global.mozIndexedDB !== undefined);
@@ -39,9 +38,6 @@
        * for encodeing and decoding strings.
        */
       this.encoder = new qubit.opentag.compression.Encoder({});
-      if (config.binSupported !== undefined) {
-        this.binSupported = !!config.binSupported;
-      }
     }
   }
 
@@ -69,7 +65,7 @@
    * 
    * @returns {String} compressed string
    */
-  CookieCompressor.prototype.compress = function(string, forceCompression) {
+  CookieCompressor.prototype.compress = function (string, forceCompression) {
     if (typeof(string) !== "string" || string === "") {
       return string;
     }
@@ -81,8 +77,8 @@
       var bin = this.compressor.compress(encoded);
       binOut =  "\"B" + this.encoder.encode(bin, 128) + "\"";
       
-      Cookie.set("__qtag_test_bin__", binOut);
-      var o = Cookie.get("__qtag_test_bin__");
+      Cookie.set("__qtag_test_bin__", binOut, undefined, undefined, true);
+      var o = Cookie.get("__qtag_test_bin__", true);
       Cookie.rm("__qtag_test_bin__");
       
       if (o && o !== binOut) {
@@ -94,16 +90,16 @@
     var ansiOut;
     var compressed = this.encoder.encode(this.compressor.compressAnsi(encoded));
     if ((!forceCompression) && encoded.length <= compressed.length) {
-      ansiOut = "\"E" + encoded + "\"";
+      ansiOut = "E" + encoded;
     } else {
-      ansiOut = "\"C" + compressed + "\"";
+      ansiOut = "C" + compressed;
     }
     
     if (binOut && binOut.length < ansiOut.length) {
-      log.FINEST("Binary compression ratio: " + (binOut.length/string.length));
+      log.FINEST("Binary compression ratio:" + (binOut.length / string.length));
       return binOut;
     } else {
-      log.FINEST("Compression ratio: " + (ansiOut.length/string.length));
+      log.FINEST("Compression ratio: " + (ansiOut.length / string.length));
       return ansiOut;
     }
   };
@@ -115,28 +111,28 @@
    * @param {String} string compressed string
    * @returns {String} resulting string
    */
-  CookieCompressor.prototype.decompress = function(string) {
+  CookieCompressor.prototype.decompress = function (string) {
     if (typeof(string) !== "string" || string === "") {
       return string;
     }
     if (string.charAt(0) === "\"") {
-      string = string.substring(1, string.length -1);
+      string = string.substring(1, string.length - 1);
     }
     log.FINEST("Decompressing...");
     var code = string.charAt(0);
     string = string.substring(1);
     
     switch (code) {
-      case "E":
-        return this.encoder.decode(string);
-      case "C":
-        var tmp = this.compressor.decompressAnsi(this.encoder.decode(string));
-        return this.encoder.decode(tmp);
-      case "B":
-        var tmp = this.compressor.decompress(this.encoder.decode(string));
-        return this.encoder.decode(tmp);
-      default:
-        throw "This code is not supported! Code: " + code;
+    case "E":
+      return this.encoder.decode(string);
+    case "C":
+      var tmp = this.compressor.decompressAnsi(this.encoder.decode(string));
+      return this.encoder.decode(tmp);
+    case "B":
+      var tmp1 = this.compressor.decompress(this.encoder.decode(string));
+      return this.encoder.decode(tmp1);
+    default:
+      throw "This code is not supported! Code: " + code;
     }
   };
 })();

@@ -1,9 +1,8 @@
 //:include qubit/opentag/Log.js
-//:include qubit/opentag/Utils.js
+//:include qubit/Define.js
 //:include qubit/opentag/BaseTag.js
 
-(function(){
-  var Utils = qubit.opentag.Utils;
+(function () {
   var log = new qubit.opentag.Log("Tags -> ");
   
   /**
@@ -14,7 +13,7 @@
    */
   var Tags = function () {};
 
-  Utils.clazz("qubit.opentag.Tags", Tags);
+  qubit.Define.clazz("qubit.opentag.Tags", Tags);
   
   /**
    * @static
@@ -43,7 +42,7 @@
   Tags.findTagByName = function (match) {
     var tags = this.getTags();
     var results = [];
-    for(var i = 0; i < tags.length; i++) {
+    for (var i = 0; i < tags.length; i++) {
       if (tags[i].config.name === match) {
         results.push(tags[i]);
       }
@@ -59,7 +58,7 @@
   Tags.findTagByMatch = function (match) {
     var tags = this.getTags();
     var results = [];
-    for(var i = 0; i < tags.length; i++) {
+    for (var i = 0; i < tags.length; i++) {
       if (tags[i].config.name.match(match)) {
         results.push(tags[i]);
       }
@@ -97,7 +96,7 @@
   Tags.getContainersPageVariables = function () {
     var containers = Tags.getContainers();
     var vars = [];
-    for(var i =0; i < containers.length; i++) {
+    for (var i = 0; i < containers.length; i++) {
       vars = vars.concat(containers.getPageVariables());
     }
     return vars;
@@ -110,7 +109,7 @@
   Tags.getAllPageVariables = function () {
     var tags = Tags.getTags();
     var vars = [];
-    for(var i = 0; i < tags.length; i++) {
+    for (var i = 0; i < tags.length; i++) {
       vars = vars.concat(tags[i].getPageVariables());
     }
     return vars;
@@ -118,11 +117,11 @@
 
   /**
    * @static
-   * Cancell all tags.
+   * Cancel all tags.
    */
   Tags.cancelAll = function () {
     var tags = Tags.getTags();
-    for(var i = 0; i < tags.length; i++) {
+    for (var i = 0; i < tags.length; i++) {
       tags[i].cancel();
     }
   };
@@ -133,7 +132,7 @@
    */
   Tags.resetAll = function () {
     var tags = Tags.getTags();
-    for(var i = 0; i < tags.length; i++) {
+    for (var i = 0; i < tags.length; i++) {
       tags[i].reset();
     }
   };
@@ -195,13 +194,13 @@
     var array = tags instanceof Array;
     
     if (array) {
-      for(var i = 0; i < tags.length; i++) {
+      for (var i = 0; i < tags.length; i++) {
         if (tags[i] instanceof qubit.opentag.BaseTag) {
           ret.push(Tags.getLoadTime(tags[i]));
         }
       }
     } else {
-      for(var prop in tags) {
+      for (var prop in tags) {
         if (tags[prop] instanceof qubit.opentag.BaseTag) {
           ret.push(Tags.getLoadTime(tags[prop]));
         }
@@ -209,7 +208,25 @@
     }
     return ret;
   };
-    
+  
+  /**
+   * Function will enable all disabled container and all disabled tags in 
+   * browser to ignore the disabled flag.
+   */
+  Tags.forceAllContainersAndTagsToRunIfDisabled = function () {
+    qubit.opentag.Container.setCookieForDisabledContainersToRun();
+    qubit.opentag.BaseTag.setCookieForcingTagsToRun();
+  };
+  
+  /**
+   * Function will clear all cookies that were set to force disabled tags
+   * and disabled containers to run.
+   * See `forceAllContainersAndTagsToRunIfDisabled` for more details.
+   */
+  Tags.rmAllContainersAndTagsForcingFlags = function () {
+    qubit.opentag.Container.rmCookieForDisabledContainersToRun();
+    qubit.opentag.BaseTag.rmAllCookiesForcingTagToRun();
+  };
   
   /**
    * Containers getter.
@@ -221,6 +238,6 @@
   };
   
   log.INFO("*** Qubit TagSDK *** ", true,
-           "font-size: 22px; color:#CCC;"+//L
+           "font-size: 22px; color:#CCC;" + //L
            "text-shadow:#fff 0px 1px 0, #555 0 -1px 0;");//L
 })();

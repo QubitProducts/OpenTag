@@ -1,4 +1,4 @@
-//:include qubit/opentag/Utils.js
+//:include qubit/Define.js
 //:include qubit/opentag/pagevariable/BaseVariable.js
 //:include qubit/opentag/Timed.js
 
@@ -35,7 +35,7 @@
     Expression.superclass.apply(this, arguments);
   }
   
-  Utils.clazz(
+  qubit.Define.clazz(
           "qubit.opentag.pagevariable.Expression",
           Expression,
           qubit.opentag.pagevariable.BaseVariable);
@@ -72,9 +72,9 @@
     }
     /*log*/
     Timed.maxFrequent(function () {
-    	if (this.failMessage) {
-    		this.log.FINEST(this.failMessage);
-    	}
+      if (this.failMessage) {
+        this.log.FINEST(this.failMessage);
+      }
       this.log.FINEST("getting value from expression: " + ret);
     }.bind(this), 10000, this._lockExprObject);
     /*~log*/
@@ -94,10 +94,10 @@
     var pathOfElements = parts[1];
     
     if (pathOfElements.indexOf(".") === 0) {
-      pathOfElements = pathOfElements.replace(".","");
+      pathOfElements = pathOfElements.replace(".", "");
     }
     
-    for(var i = 0; i < array.length; i++) {
+    for (var i = 0; i < array.length; i++) {
       var element = Utils.getObjectUsingPath(pathOfElements, array[i]);
       collection.push(element);
     }
@@ -117,7 +117,7 @@
    * @returns {String} replaced string
    */
   Expression.prototype.replaceToken =
-          function(token, string, altValue, exp) {
+          function (token, string, altValue, exp) {
     if ((this.getValue() instanceof Array)) {
       exp = true;
     }

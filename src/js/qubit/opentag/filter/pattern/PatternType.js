@@ -1,4 +1,4 @@
-//:include qubit/opentag/Utils.js
+//:include qubit/Define.js
 
 /*
  * TagSDK, a tag development platform
@@ -8,7 +8,7 @@
  */
 
 (function () {
-  var Utils = qubit.opentag.Utils;
+  var Define = qubit.Define;
   
   /**
    * #PatternType static class.
@@ -47,7 +47,7 @@
     ALL_URLS: "All URLs"
   };
   
-  Utils.namespace("qubit.opentag.filter.pattern.PatternType", PatternType);
+  Define.namespace("qubit.opentag.filter.pattern.PatternType", PatternType);
 }());
 
 

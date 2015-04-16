@@ -1,4 +1,4 @@
-//:include qubit/opentag/Utils.js
+//:include qubit/Define.js
 //:include qubit/opentag/pagevariable/BaseVariable.js
 //:include qubit/Cookie.js
 //:include qubit/opentag/Timed.js
@@ -11,7 +11,6 @@
  */
 
 (function () {
-  var Utils = qubit.opentag.Utils;
   var Timed = qubit.opentag.Timed;
 
   
@@ -31,7 +30,7 @@
     this._lockObject = {};
   }
   
-  Utils.clazz(
+  qubit.Define.clazz(
           "qubit.opentag.pagevariable.Cookie",
           Cookie,
           qubit.opentag.pagevariable.BaseVariable);
@@ -42,7 +41,7 @@
    * @returns {String} cookie value
    */
   Cookie.prototype.getValue = function () {
-    var val = qubit.Cookie.get(this.value, true);
+    var val = qubit.Cookie.get(this.value);
     Timed.maxFrequent(function () {
       this.log.FINEST("reading cookie value: " + val);
     }.bind(this), 2000, this._lockObject);

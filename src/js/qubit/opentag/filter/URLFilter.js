@@ -1,4 +1,5 @@
 //:include qubit/opentag/Log.js
+//:include qubit/Define.js
 //:include qubit/opentag/Utils.js
 //:include qubit/opentag/Timed.js
 //:include qubit/opentag/filter/BaseFilter.js
@@ -46,7 +47,7 @@
     };
     
     if (config) {
-      for(var prop in config) {
+      for (var prop in config) {
         if (config.hasOwnProperty(prop)) {
           defaultConfig[prop] = config[prop];
         }
@@ -56,7 +57,7 @@
     URLFilter.superclass.call(this, defaultConfig);
   }
   
-  Utils.clazz("qubit.opentag.filter.URLFilter", URLFilter, BaseFilter);
+  qubit.Define.clazz("qubit.opentag.filter.URLFilter", URLFilter, BaseFilter);
   
   /**
    * URL getting wrapper.
@@ -83,28 +84,28 @@
     var pattern = this.config.pattern;
     
     switch (this.config.patternType) {
-      case PatternType.CONTAINS:
-        match = (url.toLowerCase().indexOf(pattern.toLowerCase()) >= 0);
-        break;
-      case PatternType.MATCHES_EXACTLY:
-        match = (url.toLowerCase() === this.config.pattern.toLowerCase());
-        break;
-      case PatternType.STARTS_WITH:
-        match = (url.toLowerCase().indexOf(pattern.toLowerCase()) === 0);
-        break;
-      case PatternType.ENDS_WITH:
-        match = ((url.lastIndexOf(pattern.toLowerCase()) + pattern.length) ===
-                   url.length);
-        break;
-      case PatternType.REGULAR_EXPRESSION:
-        match = new RegExp(pattern).test(url);
-        break;
-      case PatternType.ALL_URLS:
-        match = true;
-        break;
+    case PatternType.CONTAINS:
+      match = (url.toLowerCase().indexOf(pattern.toLowerCase()) >= 0);
+      break;
+    case PatternType.MATCHES_EXACTLY:
+      match = (url.toLowerCase() === this.config.pattern.toLowerCase());
+      break;
+    case PatternType.STARTS_WITH:
+      match = (url.toLowerCase().indexOf(pattern.toLowerCase()) === 0);
+      break;
+    case PatternType.ENDS_WITH:
+      match = ((url.lastIndexOf(pattern.toLowerCase()) + pattern.length) ===
+                 url.length);
+      break;
+    case PatternType.REGULAR_EXPRESSION:
+      match = new RegExp(pattern).test(url);
+      break;
+    case PatternType.ALL_URLS:
+      match = true;
+      break;
     }
     /*log*/
-    Timed.maxFrequent(function() {
+    Timed.maxFrequent(function () {
       this.log.FINEST("[ Filter " + this.config.name +
               "] Checking if patternType '" +//L
               this.config.patternType + "' match '" +//L

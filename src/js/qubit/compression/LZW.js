@@ -1,11 +1,10 @@
-//:include GLOBAL.js
 //:include qubit/Define.js
 
 ////Author Peter Fronc
 // UTF supported.
 
 
-(function() {
+(function () {
 
   var defaultAlphabet = [];
   //"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ~_.-*()'!%"
@@ -36,7 +35,7 @@
    * 
    * @param {Object} config
    */
-  function LZW (config) {
+  function LZW(config) {
     if (config) {
       if (config.alphabet) {
         this.alphabet = config.alphabet;
@@ -58,7 +57,7 @@
    * @param {String} string
    * @returns {Array} array of numbers.
    */
-  LZW.prototype.encode = function(string) {
+  LZW.prototype.encode = function (string) {
     var dictsize = this.alphabet.length;
     var extDict = {};
     var results = [];
@@ -67,7 +66,7 @@
     var next;
     var dict = this.dict;
 
-    while (next = string.charAt(index++)) {
+    while (!!(next = string.charAt(index++))) {
       var newWord = curr + next;
       if (dict.hasOwnProperty(newWord) || extDict.hasOwnProperty(newWord)) {
         curr = newWord;
@@ -94,7 +93,7 @@
    * @param {Array} codes array of LZW numbers to decode
    * @returns {String} decoded string
    */
-  LZW.prototype.decode = function(codes) {
+  LZW.prototype.decode = function (codes) {
     var dict = this.dict;
     var dictSize = this.alphabet.length;
     var chunk;
@@ -136,8 +135,9 @@
 
   function getFromDict(code, dict) {
     for (var p in dict) {
-      if (code === dict[p])
+      if (code === dict[p]) {
         return p;
+      }
     }
     return null;
   }

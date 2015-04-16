@@ -1,4 +1,4 @@
-//:include qubit/opentag/Utils.js
+//:include qubit/Define.js
 //:include qubit/opentag/Log.js
 
 /*
@@ -9,7 +9,6 @@
  */
 
 (function () {
-  var Utils = qubit.opentag.Utils;
   var counter = 0;
   
   /**
@@ -38,7 +37,7 @@
    * 
    * @param config {Object} config object used to build instance
    */
-  function BaseFilter (config) {
+  function BaseFilter(config) {
     /*log*/
     this.log = new qubit.opentag.Log("", function () {
       return this.CLASS_NAME + "[" + this.config.name + "]";
@@ -96,7 +95,7 @@
     }
   }
   
-  Utils.clazz("qubit.opentag.filter.BaseFilter", BaseFilter);
+  qubit.Define.clazz("qubit.opentag.filter.BaseFilter", BaseFilter);
   
 
   /**

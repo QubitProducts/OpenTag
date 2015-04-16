@@ -1,12 +1,11 @@
 /*EXCLUDE: NO-SEND*/
+//:include qubit/Define.js
 //:include cookie/PageView.js
-//:include qubit/opentag/Utils.js
 //:include qubit/opentag/Log.js
 //:include html/PostData.js
 
 (function () {
   
-  var Utils = qubit.opentag.Utils;
   var log = new qubit.opentag.Log("Ping -> ");
   
   /**
@@ -17,7 +16,7 @@
    */
   function Ping() {}
 
-  Utils.clazz("qubit.opentag.Ping", Ping);
+  qubit.Define.clazz("qubit.opentag.Ping", Ping);
   
   /**
    * Function sends ping information to the servers.
@@ -37,7 +36,13 @@
     for (var i = 0; i < loadTimes.length; i++) {
       var tag = loadTimes[i].tag;
       var loadTime = loadTimes[i].loadTime;
-      var loaderId = tag.config.ID;
+      
+      if (loadTime === null || isNaN(loadTime)) {
+        //ignore unset load time entries.
+        continue;
+      }
+      
+      var loaderId = tag.config.id;
       
       if (!tag.pingSent && loaderId && loadTime !== null) {
         if (loaderId !== undefined) {
@@ -51,8 +56,8 @@
         log.FINEST("send: ping already sent for `" + tag.config.name +
                 "`, ignoring.");//L
       } else if (loadTime === null) {
-        log.FINEST("send:tried to send null load times for `" +
-                tag.config.name + "`, ignoring.");//L
+        log.FINEST("send: null load times for `" +
+                tag.config.name + "`, ignoring (ping not sent).");//L
       }
     }
         
@@ -78,7 +83,7 @@
    * @param {Object} config
    */
   Ping.prototype.sendErrors = function (config, errors) {
-    //@TODO add on-demand errors sending so client can easily invoke 
+    // @TODO add on-demand errors sending so client can easily invoke 
     //"qubut.opentag.Tags.sendAllErrors()
     log.WARN("Errors sending is disabled.");
 //    var loaderId, err, msg, errMsgs = [];
@@ -121,7 +126,7 @@
 
     for (var i = 0; i < tags.length; i++) {
       var tag = tags[i];
-      var loaderId = tag.config.ID;
+      var loaderId = tag.config.id;
 
       if (loaderId === undefined) {
         log.WARN("sendDedupe: tag `" + tag.config.name +
@@ -148,4 +153,4 @@
   };
   
   /*~session*/
-  }());
+}());
