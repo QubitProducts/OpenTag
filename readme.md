@@ -55,7 +55,7 @@ Empty tag, however, does not trigger anything. Let us have a tag that will load 
 ```javascript
 	var aTag = new qubit.opentag.BaseTag({
 		name: "My tag name",
-		url: "http://code.jquery.com/jquery.js"
+		url: "https://code.jquery.com/jquery.js"
 	});
 
 	aTag.script = function() {
@@ -72,7 +72,7 @@ Example above could be run with shorter code:
 ```javascript
 	new qubit.opentag.BaseTag({
 		name: "My tag name",
-		url: "http://code.jquery.com/jquery.js",
+		url: "https://code.jquery.com/jquery.js",
 		script : function() {
 			alert("JQuery is present: " + !!jQuery);
 		}
