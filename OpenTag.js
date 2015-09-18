@@ -99,7 +99,6 @@ q.html.fileLoader.tidyUrl = function (path) {
   return "//" + path;
 };
 /*jslint evil: true */
-/*jslint evil: true */
 
 q.html.GlobalEval = {};
 
@@ -213,33 +212,8 @@ q.html.HtmlInjector.loadScripts = function (contents, i, cb, parentNode) {
   }
 };
 
-var urlFilters = [{
-    filterType: "1", //Matches QTag.FILTER_TYPE_INCLUDE/EXCLUDE
-    patternType: "1", //Matches QTag.ALL/SUBSTRING/REGEX/EXACT_MATCH
-    pattern: "*", //Pattern for pattern type.
-    priority: 1,
-   scriptLoaderKeys: ["1"] //Matches keys in scriptLoader
-  }],
-  scriptLoaders = {
-    "1": {
-      id: "1",
-      name: "Name of the script to load",
-      pre: "", //Javascript to run before the url is loaded
-      url: "", //A url to load javascript from
-      post: "", //Javascript to run after the url has loaded
-      html: "", //If no url is specified, you can load some html through here.
-      locationId: 1, //1 = HEAD, 2 = BODY, 3 = DIV
-      positionId: 1, //1 = BEGINNING, 2 = HEAD
-      locationDetail: "", //If specified 3 for locationId, then the id of the DIV to put the code in
-      async: "", //If a url, whether the script element should be loaded asynchronously
-      usesDocWrite: false //If the loaded code uses document.write
-    }
-  };
-
-/*INSERT_DATA*/
-
-function QTag(urlFilters, scriptLoaders) {
-  QTag.qTagLoaders = QTag.getLoaders(urlFilters, scriptLoaders, document.URL);
+function QTag(urlFilters, scriptLoaders, categoryFilter) {
+  QTag.qTagLoaders = QTag.getLoaders(urlFilters, scriptLoaders, document.URL, categoryFilter);
   QTag.loadersFinished = 0;
   QTag.loadLoaders();
 }
@@ -256,13 +230,16 @@ QTag.FILTER_TYPE_EXCLUDE = "2";
  * @param urlFilter An array containing objects which have a pattern type and
  *   a filter type
  */
-QTag.getLoaders = function (urlFilters, scriptLoaders, url) {
+QTag.getLoaders = function (urlFilters, scriptLoaders, url, categoryFilter) {
   var i, ii, urlFilter, loaderKeysSet = {}, matchedFilters = [],
     loaders = [];
 
   if ((!urlFilters) || (!url)) {
     return loaders;
   }
+  
+  categoryFilter = categoryFilter || [];
+  
   for (i = 0, ii = urlFilters.length; i < ii; i += 1) {
     urlFilter = urlFilters[i];
     if (QTag.doesUrlFilterMatch(urlFilter, url)) {
@@ -312,11 +289,15 @@ QTag.doesUrlFilterMatch = function (urlFilter, url) {
 /**
  * Update the loader key set with the given filter
  */
-QTag.updateLoaders = function (urlFilter, loaderKeysSet) {
+QTag.updateLoaders = function (urlFilter, loaderKeysSet, categoryFilter) {
   var i, ii, scriptLoaderKeys = urlFilter.scriptLoaderKeys;
   if (urlFilter.filterType === QTag.FILTER_TYPE_INCLUDE) {
     for (i = 0, ii = scriptLoaderKeys.length; i < ii; i += 1) {
-      if (scriptLoaderKeys.hasOwnProperty(i)) {
+      
+      var category = scriptLoaders[scriptLoaderKeys[i]].category;
+      
+      // add script (+) if there is no category defined or if his category matches
+      if (scriptLoaderKeys.hasOwnProperty(i) && (category == undefined || categoryFilter.indexOf(category) != -1)) {
         loaderKeysSet[scriptLoaderKeys[i]] = true;
       }
     }
@@ -486,4 +467,56 @@ QTag.incrementLoadCounter = function () {
   }
 };
 
-var qTag = new QTag(urlFilters || [], scriptLoaders || {});
+
+
+var categoryFilter = [
+        1,2,3,4
+    ],
+    urlFilters = [{
+        filterType: '1', //Matches QTag.FILTER_TYPE_INCLUDE/EXCLUDE
+        patternType: '1', //Matches QTag.ALL/SUBSTRING/REGEX/EXACT_MATCH
+        pattern: "*", //Pattern for pattern type.
+        priority: 1,
+        scriptLoaderKeys: ['1'] //Matches keys in scriptLoader
+      },
+      {
+        filterType: QTag.FILTER_TYPE_INCLUDE,
+        patternType: QTag.SUBSTRING,
+        pattern: "/my-page.html",
+        priority: 1,
+        scriptLoaderKeys: [
+            '1'
+            ,'myTag2'
+        ]
+    }],
+    scriptLoaders = {
+      '1': {
+        id: '1',
+        name: 'Name of the script to load',
+        pre: '', //Javascript to run before the url is loaded
+        url: '', //A url to load javascript from
+        post: '', //Javascript to run after the url has loaded
+        html: '', //If no url is specified, you can load some html through here.
+        locationId: 1, //1 = HEAD, 2 = BODY, 3 = DIV
+        positionId: 1, //1 = BEGINNING, 2 = HEAD
+        locationDetail: '', //If specified 3 for locationId, then the id of the DIV to put the code in
+        async: '', //If a url, whether the script element should be loaded asynchronously
+        usesDocWrite: false //If the loaded code uses document.write
+      },
+      'myTag2': {
+        id: 'myTag2',
+        name: 'myTag2',
+        pre: '', //Javascript to run before the url is loaded
+        url: '', //A url to load javascript from
+        post: '', //Javascript to run after the url has loaded
+        html: 'myTag2 html', //If no url is specified, you can load some html through here.
+        locationId: 2, //1 = HEAD, 2 = BODY, 3 = DIV
+        positionId: 1, //1 = BEGINNING, 2 = HEAD
+        locationDetail: '', //If specified 3 for locationId, then the id of the DIV to put the code in
+        async: '', //If a url, whether the script element should be loaded asynchronously
+        usesDocWrite: false, //If the loaded code uses document.write
+        category: 4 // myTag2 will be loader if this id is defined into categoryFilter array
+      }
+    };
+
+var qTag = new QTag(urlFilters || [], scriptLoaders || {}, categoryFilter || []);
