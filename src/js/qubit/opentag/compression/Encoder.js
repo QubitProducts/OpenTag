@@ -1,5 +1,5 @@
-//:include qubit/Define.js
-//:include qubit/Cookie.js
+//:import qubit.Define
+//:import qubit.Cookie
 
 (function () {
   var Define = qubit.Define;

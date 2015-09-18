@@ -1,9 +1,8 @@
-//:include qubit/Define.js
-//:include html/FileLoader.js
-//:include qubit/opentag/Utils.js
-//:include qubit/opentag/filter/BaseFilter.js
-//:include qubit/opentag/filter/SessionVariableFilter.js
-//:include html/HtmlInjector.js
+//:import qubit.Define
+//:import html.FileLoader
+//:import qubit.opentag.filter.BaseFilter
+//:import qubit.opentag.filter.SessionVariableFilter
+//:import html.HtmlInjector
 
 /* global qubit,q */
 
@@ -77,8 +76,8 @@
     var loadingCheck = function (passedUrlFromLoader, loadError, loadFailed) {
       loadedURLs[url].error = loadError;
       if (loadFailed) {
-        log.ERROR("Loading process error:");
-        log.ERROR(loadError, true);
+        log.ERROR("Loading process error:");/*L*/
+        log.ERROR(loadError, true);/*L*/
         loadedURLs[url].state = STATE.FAIL;
         config.onerror();
       } else {
@@ -89,8 +88,8 @@
 
     if (loadedURLs[url]) {
       if (config.noMultipleLoad) {
-        log.FINE(url + " is already loaded, with state: " +
-                loadedURLs[url].state);//L
+        log.FINE(url + " is already loaded, with state: " +/*L*/
+                loadedURLs[url].state);/*L*/
         return loadingCheck(
           url,
           loadedURLs[url].error,
@@ -109,16 +108,16 @@
 
     var loaded = TagsUtils.bodyLoaded();
     if (useWrite && loaded) {
-      log.WARN("Script configured for synchronous injection while " +
-              "document seems to be already loaded. Secure option " +//L
-              "applies. Script will be appended in standard way.");//L
+      log.WARN("Script configured for synchronous injection while " +/*L*/
+              "document seems to be already loaded. Secure option " +/*L*/
+              "applies. Script will be appended in standard way.");/*L*/
     }
 
     useWrite = useWrite && !loaded;
 
     if (useWrite) {
-      log.WARN("Adding script element by using document.write. IE will" +
-              " error check fail broken url's.");//L
+      log.WARN("Adding script element by using document.write. IE will" +/*L*/
+              " error check fail broken url's.");/*L*/
       TagsUtils.writeScriptURL(
         url,
         function (allOk, error) {
@@ -160,24 +159,24 @@
      */
   TagsUtils.redirectDocumentWritesToArray = function (array, log) {
     var text = array;
-    if (log) {//L
-      log.FINE("redirecting document.write methods...");
-    }//L
+    if (log) {/*L*/
+      log.FINE("redirecting document.write methods...");/*L*/
+    }/*L*/
     
     saveDocWriteMethods();
 
     document.write = function (t) {
       text.push(t);
-      if (log) {//L
-        log.FINE("Received call from document.write with:" + t);
-      }//L
+      if (log) {/*L*/
+        log.FINE("Received call from document.write with:" + t);/*L*/
+      }/*L*/
     };
     
     document.writeln = function (t) {
       text.push(t);
-      if (log) {//L
-        log.FINE("Received call from document.writeln with:" + t);
-      }//L
+      if (log) {/*L*/
+        log.FINE("Received call from document.writeln with:" + t);/*L*/
+      }/*L*/
     };
   };
 
@@ -202,15 +201,15 @@
         TagsUtils.injectHTML(el, append, flushed.join("\n"), cb || EMPTY_FUN);
         return true;
       } catch (ex) {
-        if (log) {//L
-          log.ERROR("Loading html caused exception:" + ex);
-        }//L
+        if (log) {/*L*/
+          log.ERROR("Loading html caused exception:" + ex);/*L*/
+        }/*L*/
       }
     } else {
       var message = "Flushing location not found!";
-      if (log) {//L
-        log.ERROR(message);
-      }//L
+      if (log) {/*L*/
+        log.ERROR(message);/*L*/
+      }/*L*/
       return false;
     }
 
@@ -226,9 +225,9 @@
    */
   TagsUtils.unlockDocumentWrites = function () {
     if (redirectedDocWriteMethods) {
-      if (log) {//L
-        log.FINEST("Bringing back document.write");
-      }//L
+      if (log) {/*L*/
+        log.FINEST("Bringing back document.write");/*L*/
+      }/*L*/
       unlockDocWriteMethods();
     }
   };
@@ -300,7 +299,7 @@
     
     Utils.bodyReady(function () {
       if (!called) {
-        log.WARN("URL loaded but cannot tell if successful: " + url);
+        log.WARN("URL loaded but cannot tell if successful: " + url);/*L*/
         called = true;
         callback(true);
       }
@@ -332,7 +331,7 @@
                                     session,
                                     tag,
                                     runLastSessionFilterIfPresent) {
-    //tag.log.FINEST("Sorting filters...");
+    //tag.log.FINEST("Sorting filters...");/*L*/
     // @todo maybe this should be done buch earlier
     filters = filters.sort(function (a, b) {
       try {
@@ -371,8 +370,8 @@
             waitingResponse = response;
           }
         } else if (response === BaseFilter.state.DISABLED) {
-          tag.log.WARN("filter with name " + filter.config.name +
-                  " is disabled");//L
+          tag.log.WARN("filter with name " + filter.config.name +/*L*/
+                  " is disabled");/*L*/
           disabledFiltersPresent = true;
         } else if (response === SESSION) {
           sessionFiltersPresent = true;
@@ -428,8 +427,8 @@
             try {
               sessionFiltersToRun[c].runTag(tag);
             } catch (ex) {
-              sessionFiltersToRun[c].log
-                      .FINEST("trying custom starter failed:" + ex);
+              sessionFiltersToRun[c].log/*L*/
+                      .FINEST("trying custom starter failed:" + ex);/*L*/
             }
           }
         }

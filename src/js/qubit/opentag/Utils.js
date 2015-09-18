@@ -1,4 +1,5 @@
-//:include qubit/Define.js
+//:import qubit.Define
+//:import qubit.Cookie
 
 /*
  * TagSDK, a tag development platform
@@ -10,6 +11,7 @@
 (function () {
   
   var Define = qubit.Define;
+  var Cookie = qubit.Cookie;
   
   /**
    * @class qubit.opentag.Utils
@@ -54,7 +56,7 @@
    * 
    * Utility for simple class declaration (not definition).
    * It does similiar job as namespace with addition of adding CLASS_NAME
-   * and PACKAGE_NAME on prototype. It also sets superclass to extending class
+   * and PACKAGE_NAME on prototype. It also sets SUPER to extending class
    * instance.
    * 
    * @param {String} path
@@ -82,6 +84,20 @@
     }
     return base;
   };
+  
+  /**
+   * Function gets parent object from name.
+   * @param {type} name
+   * @returns {Object}
+   */
+  Utils.getParentObject = function (name) {
+    var idx = name.lastIndexOf(".");
+    var path = name.substring(0, idx);
+    return Utils.getObjectUsingPath(path);
+  };
+
+  
+  
   
   /**
    * @deprecated.
@@ -457,18 +473,20 @@
    * Function used to traverse through an object and its properties.
    * 
    * Execution function `exe` will be called on each object's property:
-   * 
-   exe(obj, parent, propName, trackPath)
+   * `
+      
+      exe(obj, parent, propName, trackPath)
+  
    * 
    * Where obj is the objects propery reference, parent is the parent object 
    * reference, propName is the property name and trackPath is a fully qualified
    * classpath leading to this object's property.
    * 
    * @param {Object} obj
-   * @param {Function} exe
    * @param {Object} cfg Optional configuration object with possible properties:
+   * @param {Function} exe
    * 
-   * - `objectsOnly` only properties that are Objects
+   * - `objectsOnly` only properties that are Objects: obj instanceof Object
    * 
    * - `maxDeep` how deep to penetrate
    * 
@@ -478,10 +496,11 @@
    * - `nodes` if DOM nodes should be included in traverse (default false)
    */
   Utils.traverse = function (obj, exe, cfg) {
-    _traverse(obj, exe, cfg);
+    var u;
+    _traverse(obj, exe, cfg, u, u, u, u, cfg.maxDeep);
   };
-
-  function _traverse(obj, exe, cfg, start, parent, prop, trackPath) {
+  
+  function _traverse(obj, exe, cfg, start, parent, prop, trackPath, maxDeep) {
     cfg = cfg || {};
 
     if (cfg.hasOwn === undefined) {
@@ -492,10 +511,10 @@
       return;
     }
 
-    if (cfg.maxDeep !== undefined && !cfg.maxDeep) {
+    if (maxDeep !== undefined && !maxDeep) {
       return;
-    } else if (cfg.maxDeep !== undefined) {
-      cfg.maxDeep--;
+    } else if (maxDeep !== undefined) {
+      maxDeep--;
     }
 
     if (!cfg || !cfg.nodes) {
@@ -510,6 +529,7 @@
         }
       }
     }
+    
     if (obj === global) {
       //dont follow those objects
       return;
@@ -547,7 +567,15 @@
           if (cfg.track) {
             objPath = trackPath ? (trackPath + "." + pprop) : pprop;
           }
-          _traverse(object, exe, cfg, start + 1, parent, pprop, objPath);
+          _traverse(
+                  object,
+                  exe,
+                  cfg,
+                  start + 1,
+                  parent,
+                  pprop,
+                  objPath,
+                  maxDeep);
         } catch (e) {
         }
       }
@@ -590,58 +618,57 @@
    *    CONSTRUCTOR property (function) is a special property on such object and
    *     will be used to create constructor - optional. 
    * @param {String} classPath classpath to be used and set at
-   * @param {Function} extendingClass class to inherit from
+   * @param {Function} extClass class to inherit from
+   * @param {Object} prototypeTemplate prototype template to use
    * @param {Object} pckg namespace package to be put at
+   * @param {Function} constr optional constructor to use
    * @returns {Object} defined class reference
    */
-  Utils.defineClass = function (classPath, extendingClass, config, pckg) {
-    
-    var names = classPath.split(".");
-    var className = names[names.length - 1];
-    
-    //create class
-    var clazz;
-    
-    // @todo arguably, anonymous looks better, but still, its good to have 
-    //the name present
-    var funTemplate = ["clazz = ",
-            "(function ", className, "() {",
-      "  if (", classPath, "._CONSTRUCTOR) {",
-      "    return ", classPath, "._CONSTRUCTOR.apply(this, arguments);",
-      "  } else {",
-      "    if (", classPath, ".superclass) {",
-      "      return ", classPath, ".superclass.apply(this, arguments);",
-      "    }",
-      "  }",
-      "})"
-      ].join("");
-    //evaluate locally (qubit )!
-    eval(funTemplate);
-    
-    var CONSTRUCTOR = config.CONSTRUCTOR;
-    
-//    //or anonymous:
-//    clazz = function () {
-//      if (clazz._CONSTRUCTOR) {
-//        return clazz._CONSTRUCTOR.apply(this, arguments);
-//      } else if (clazz.superclass) {
-//        return clazz.superclass.apply(this, arguments);
-//      }
-//    };
-    
-    clazz._CONSTRUCTOR = CONSTRUCTOR;
-    clazz.superclass = extendingClass;
-    
+  Utils.defineWrappedClass = function (
+          classPath,
+          extClass,
+          prototypeTemplate,
+          pckg,
+          constr) {
+    //or anonymous:
+    var clazz = function () {
+      if (constr) {
+        return constr.apply(this, arguments);
+      } else {
+        return extClass.apply(this, arguments);
+      }
+    };
+        
     //publish class
-    Define.clazz(classPath, clazz, extendingClass, pckg);
+    Define.clazz(classPath, clazz, extClass, pckg);
     
     //pass prototype objects
-    for (var prop in config) {
-      if (config.hasOwnProperty(prop) && prop !== "CONSTRUCTOR") {
-        clazz.prototype[prop] = config[prop];
+    for (var prop in prototypeTemplate) {
+      if (prototypeTemplate.hasOwnProperty(prop) && prop !== "CONSTRUCTOR") {
+        clazz.prototype[prop] = prototypeTemplate[prop];
       }
     }
     return clazz;
+  };
+  
+  /**
+   * Useful method for copying objects and attaching new references
+   * from other object.
+   * @param {Object} A object to copy
+   * @param {Object} B object's props to assign on A after copying.
+   * @param {Number} maxDeep how deep to copy, default is 8 (javascript is slow
+   *      and extra limitation is a good thing).
+   * @returns {Object} Objects copy.
+   */
+  Utils.copyAandAddFromB = function (A, B, maxDeep) {
+    maxDeep = maxDeep || 8;
+    var copy = this.objectCopy(A, {maxDeep: maxDeep});
+    for (var prop in B) {
+      if (B.hasOwnProperty(prop)) {
+        copy[prop] = B[prop];
+      }
+    }
+    return copy;
   };
   
   /**
@@ -695,10 +722,11 @@
    *  the end of array.
    * if exists it will return its popsition.
    */
-  Utils.addToArrayIfNotExist = function (array, obj) {
+  Utils.addToArrayIfNotExist = function (array, obj, equals) {
     var i = 0, exists = false;
     for (; i < array.length; i += 1) {
-      if (array[i] === obj) {
+      var tmp = equals && equals(array[i], obj);
+      if (tmp || array[i] === obj) {
         exists = true;
         break;
       }
@@ -858,6 +886,23 @@
   };
   
   /**
+   * Shortcut to opverride object props. Commonly used.
+   * @param {type} A
+   * @param {type} B
+   * @returns {Object} returns A
+   */
+  Utils.overrideFromBtoA = function (A, B) {
+    if (A && B) {
+      for (var prop in B) {
+        if (B.hasOwnProperty(prop)) {
+          A[prop] = B[prop];
+        }
+      }
+    }
+    return A;
+  };
+  
+  /**
    * Global eval function.
    * It evaluates expression in a global scope.
    * @param {String} expression
@@ -867,6 +912,35 @@
       return window.execScript(expression);
     } else {
       return (function () {return global["eval"].call(global, expression); }());
+    }
+  };
+  
+  var _availStack = [];
+  Utils.bodyAvailable = function (callback) {
+    var avail = !!document.body;
+    if (avail) {
+      if (_availStack) {
+        for (var i = 0; i < _availStack.length; i++) {
+          try {
+            _availStack[i]();
+          } catch (ex) {
+          }
+        }
+        _availStack = false;
+      }
+      callback();
+    } else {
+      _availStack.push(callback);
+    }
+  };
+  
+  Utils.rmCookiesMatching = function (string) {
+    var cookies = Cookie.getAll();
+    for (var i = 0; i < cookies.length; i++) {
+      var name = cookies[i][0];
+      if (name.match(string) === 0) {
+        Cookie.rm(name);
+      }
     }
   };
   
@@ -900,9 +974,9 @@
         try {
           _readyCalls[i]();
         } catch (ex) {
-          if (global.console && global.console.trace) {//L
-            global.console.trace(ex);//L
-          }//L
+          if (global.console && global.console.trace) {/*L*/
+            global.console.trace(ex);/*L*/
+          }/*L*/
         }
       }
       if (callback) {

@@ -1,0 +1,12 @@
+{
+  "q":"true",
+  "qubit": "true",
+  "module": "true",
+  "escape": "true",
+  "unescape": "true",
+  "PKG_ROOT": "true",
+  "EMPTY_FUN": "true",
+  "UNDEF": "true",
+  "ActiveXObject": "true",
+  "GLOBAL": "true"
+}

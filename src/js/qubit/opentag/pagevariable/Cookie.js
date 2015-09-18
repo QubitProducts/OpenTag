@@ -1,7 +1,7 @@
-//:include qubit/Define.js
-//:include qubit/opentag/pagevariable/BaseVariable.js
-//:include qubit/Cookie.js
-//:include qubit/opentag/Timed.js
+//:import qubit.Define
+//:import qubit.opentag.pagevariable.BaseVariable
+//:import qubit.Cookie
+//:import qubit.opentag.Timed
 
 /*
  * TagSDK, a tag development platform
@@ -26,7 +26,7 @@
    * @param config {Object} config object used to build instance
    */
   function Cookie(config) {
-    Cookie.superclass.apply(this, arguments);
+    Cookie.SUPER.apply(this, arguments);
     this._lockObject = {};
   }
   
@@ -43,7 +43,7 @@
   Cookie.prototype.getValue = function () {
     var val = qubit.Cookie.get(this.value);
     Timed.maxFrequent(function () {
-      this.log.FINEST("reading cookie value: " + val);
+      this.log.FINEST("reading cookie value: " + val);/*L*/
     }.bind(this), 2000, this._lockObject);
     return val;
   };

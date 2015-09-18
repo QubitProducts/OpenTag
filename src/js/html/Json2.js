@@ -324,7 +324,11 @@ var JSON = {};
 
                 length = value.length;
                 for (i = 0; i < length; i += 1) {
-                    partial[i] = str(i, value) || 'null';
+                    try {
+                      partial[i] = str(i, value) || 'null';
+                    } catch (stackExceeded) {
+                      partial[i] = "{\"stack_exceeded\": null}";
+                    }
                 }
 
 // Join all of the elements together, separated with commas, and wrap them in
@@ -344,7 +348,11 @@ var JSON = {};
                 for (i = 0; i < length; i += 1) {
                     if (typeof rep[i] === 'string') {
                         k = rep[i];
-                        v = str(k, value);
+                        try {
+                          v = str(k, value);
+                        } catch (stackExceeded) {
+                          v = "{\"stack_exceeded\": null}";
+                        }
                         if (v) {
                             partial.push(quote(k) + (gap ? ': ' : ':') + v);
                         }
@@ -356,7 +364,11 @@ var JSON = {};
 
                 for (k in value) {
                     if (Object.prototype.hasOwnProperty.call(value, k)) {
-                        v = str(k, value);
+                        try{
+                          v = str(k, value);
+                        } catch (stackExceeded) {
+                          v = "{\"stack_exceeded\": null}";
+                        }
                         if (v) {
                             partial.push(quote(k) + (gap ? ': ' : ':') + v);
                         }

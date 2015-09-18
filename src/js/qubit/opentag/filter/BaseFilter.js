@@ -1,5 +1,6 @@
-//:include qubit/Define.js
-//:include qubit/opentag/Log.js
+//:import qubit.Define
+//:import qubit.opentag.Log
+//:import qubit.opentag.Utils
 
 /*
  * TagSDK, a tag development platform
@@ -9,8 +10,9 @@
  */
 
 (function () {
+  var Utils = qubit.opentag.Utils;
   var counter = 0;
-  
+  var filters = [];
   /**
    * @class qubit.opentag.filter.BaseFilter
    * 
@@ -43,7 +45,7 @@
       return this.CLASS_NAME + "[" + this.config.name + "]";
     }.bind(this), "collectLogs");
     /*~log*/
-    
+
     this.config = {
       /**
        * Filter order number - it is used by tag to determine order of filters.
@@ -75,14 +77,14 @@
        */
       session: undefined
     };
-    
+
     /**
      * Session object - if attached, it will be attached normally by 
      * tag instance.
      * @property {qubit.opentag.Session} session
      */
     this.session = null;
-    
+
     if (config) {
       for (var prop in config) {
         if (config.hasOwnProperty(prop)) {
@@ -92,11 +94,13 @@
       if (config.session) {
         this.setSession(config.session);
       }
+
+      this.register(this);
     }
   }
-  
+
   qubit.Define.clazz("qubit.opentag.filter.BaseFilter", BaseFilter);
-  
+
 
   /**
    * State value higher than 0 is used to distinqt delayed filters.
@@ -117,7 +121,7 @@
     PASS: -1, //positive numbers are used for timeout
     FAIL: 0
   };
-  
+
   /**
    * Function will reset object to initial state (disabled state will be turned
    *  to enabled).
@@ -125,21 +129,21 @@
   BaseFilter.prototype.reset = function () {
     this.enable();
   };
-  
+
   /**
    * Function will disable filter. State returned will be turned to disabled.
    */
   BaseFilter.prototype.disable = function () {
     this.config.disabled = true;
   };
-  
+
   /**
    * Function will enmable filter.
    */
   BaseFilter.prototype.enable = function () {
     this.config.disabled = false;
   };
-  
+
   /**
    * Function that determines if filter matches for use.
    * @returns {Boolean}
@@ -147,7 +151,7 @@
   BaseFilter.prototype.match = function () {
     return true;
   };
-  
+
   /**
    * Session object setter for filter.
    * @param {qubit.opentag.Session} session
@@ -155,7 +159,7 @@
   BaseFilter.prototype.setSession = function (session) {
     this.session = session;
   };
-  
+
   /**
    * Session object getter for filter.
    * @returns {qubit.opentag.Session}
@@ -163,7 +167,7 @@
   BaseFilter.prototype.getSession = function () {
     return this.session;
   };
-  
+
   /**
    * Filter function used to test filter for its state.
    * Tag has 2 stages at using filters:
@@ -175,24 +179,49 @@
    */
   BaseFilter.prototype.getState = function () {
     var passed = BaseFilter.state.PASS;
-    
+
     if (this.config.disabled) {
       return BaseFilter.state.DISABLED;
     }
-    
+
     if (this.config.script) {
       passed = this.config.script.call(this, passed);
     }
-    
+
     if (isNaN(+passed)) {
-      this.log.WARN("filters should use a numerical state as a return " +
-              "for getState():" +//L
-              " BaseFilter.state. Filter will fail. Returned: " + passed);//L
+      this.log.WARN("filters should use a numerical state as a return " + /*L*/
+              "for getState():" + /*L*/
+              " BaseFilter.state. Filter will fail. Returned: " + passed);/*L*/
       passed = BaseFilter.state.FAIL;
     }
-    
+
     this.lastState = +passed;
-    
+
     return passed;
+  };
+
+  /**
+   * @static
+   * @returns {Array}
+   */
+  BaseFilter.getFilters = function () {
+    return filters;
+  };
+
+  /**
+   * 
+   * @returns {undefined}
+   */
+  BaseFilter.prototype.register = function () {
+    BaseFilter.register(this);
+  };
+
+  /**
+   * @static
+   * @param {type} filter
+   * @returns {undefined}
+   */
+  BaseFilter.register = function (filter) {
+    Utils.addToArrayIfNotExist(filters, filter);
   };
 }());

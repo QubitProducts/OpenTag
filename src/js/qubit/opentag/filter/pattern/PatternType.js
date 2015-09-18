@@ -1,4 +1,4 @@
-//:include qubit/Define.js
+//:import qubit.Define
 
 /*
  * TagSDK, a tag development platform
@@ -24,27 +24,27 @@
     /**
      * @property {Object} CONTAINS
      */
-    CONTAINS: "Contains",
+    CONTAINS: "CONTAINS",
     /**
      * @property {Object} MATCHES_EXACTLY
      */
-    MATCHES_EXACTLY: "Matches Exactly",
+    MATCHES_EXACTLY: "MATCHES_EXACTLY",
     /**
      * @property {Object} STARTS_WITH
      */
-    STARTS_WITH: "Starts with",
+    STARTS_WITH: "STARTS_WITH",
     /**
      * @property {Object} ENDS_WITH
      */
-    ENDS_WITH: "Ends with",
+    ENDS_WITH: "ENDS_WITH",
     /**
      * @property {Object} REGULAR_EXPRESSION
      */
-    REGULAR_EXPRESSION: "Regular Expression",
+    REGULAR_EXPRESSION: "REGULAR_EXPRESSION",
     /**
      * @property {Object} ALL_URLS
      */
-    ALL_URLS: "All URLs"
+    ALL_URLS: "ALL_URLS"
   };
   
   Define.namespace("qubit.opentag.filter.pattern.PatternType", PatternType);

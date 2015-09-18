@@ -1,5 +1,5 @@
-//:include qubit/Define.js
-//:include qubit/opentag/Timer.js
+//:import qubit.Define
+//:import qubit.opentag.Timer
 
 /*
  * TagSDK, a tag development platform

@@ -1,8 +1,8 @@
 /*EXCLUDE: NO-SEND*/
-//:include qubit/Define.js
-//:include cookie/PageView.js
-//:include qubit/opentag/Log.js
-//:include html/PostData.js
+//:import qubit.Define
+//:import cookie.PageView
+//:import qubit.opentag.Log
+//:import html.PostData
 
 (function () {
   
@@ -20,13 +20,14 @@
   
   /**
    * Function sends ping information to the servers.
-   * @param {Object} config Container config
+   * @param {Object} container Container reference
    * @param loadTimes {Array} Array of load time elements [time, BaseTag]
    */
-  Ping.prototype.send = function (config, loadTimes) { 
+  Ping.prototype.send = function (container, loadTimes) {
+    var config = container.config;
     var pingString = 
             "c=" + config.clientId + "&" +
-            "p=" + config.containerId + "&" +
+            "p=" + container.getContainerId() + "&" +
             "l=" + config.tellLoadTimesProbability + "&" +
             "pv=" + q.cookie.PageView.update() + "&" +
             "d=";
@@ -49,15 +50,15 @@
           pingStrings.push('"' + loaderId + '":' + loadTime);
           tag.pingSent = true;
         } else {
-          log.WARN("send: tag `" + tag.config.name +
-                  "` has no ID assigned! Time load will not be sent.");//L
+          log.WARN("send: tag `" + tag.config.name +/*L*/
+                  "` has no ID assigned! Time load will not be sent.");/*L*/
         }
       } else if (tag.pingSent) {
-        log.FINEST("send: ping already sent for `" + tag.config.name +
-                "`, ignoring.");//L
+        log.FINEST("send: ping already sent for `" + tag.config.name +/*L*/
+                "`, ignoring.");/*L*/
       } else if (loadTime === null) {
-        log.FINEST("send: null load times for `" +
-                tag.config.name + "`, ignoring (ping not sent).");//L
+        log.FINEST("send: null load times for `" +/*L*/
+                tag.config.name + "`, ignoring (ping not sent).");/*L*/
       }
     }
         
@@ -65,14 +66,14 @@
     if (config.pingServerUrl && pingStrings.length > 0) {
       pingString += encodeURIComponent("{" + pingStrings.join(',') + "}");
       var url = "//" + config.pingServerUrl + "/tag2?" + pingString;
-      log.FINE("send: sending pings " + url);
+      log.FINE("send: sending pings " + url);/*L*/
       q.html.PostData(url, null, "GET");
     } else {
       if (!pingStrings.length) {
-        log.FINE("send: no pings to sent");
+        log.FINE("send: no pings to sent");/*L*/
       }
       if (!config.pingServerUrl) {
-        log.WARN("send: config.pingServerUrl is unset!");
+        log.WARN("send: config.pingServerUrl is unset!");/*L*/
       }
     }
   };
@@ -80,12 +81,14 @@
   /**
    * Disabled. Function sends error information to servers.
    * @private
-   * @param {Object} config
+   * @param {Object} container
+   * @param {Object} errors
    */
-  Ping.prototype.sendErrors = function (config, errors) {
+  Ping.prototype.sendErrors = function (container, errors) {
     // @TODO add on-demand errors sending so client can easily invoke 
     //"qubut.opentag.Tags.sendAllErrors()
-    log.WARN("Errors sending is disabled.");
+    log.WARN("Errors sending is disabled.");/*L*/
+//    var config = container.config;
 //    var loaderId, err, msg, errMsgs = [];
 //    
 //    for (var i = 0; i < errors.length; i++) {
@@ -95,10 +98,10 @@
 //        "',l:'" + err.lineNumber + "'}");
 //    }
 //    if (errMsgs.length > 0) {
-//      log.INFO("about to send errors: " + errMsgs.join(","));
+//      log.INFO("about to send errors: " + errMsgs.join(","));/*L*/
 //
 //      msg = "c=" + config.opentagClientId + "&" + 
-//        "p=" + config.containerId + "&" +
+//        "p=" + container.getContainerId() + "&" +
 //        "pv=" + q.cookie.PageView.update() + "&" +
 //        "e=" + ("[" + errMsgs.join(",") + "]");
 //      if (config.pingServerUrl) {
@@ -112,12 +115,13 @@
 
   /**
    * Function send deduplicated information ping to servers.
-   * @param {Object} config
+   * @param {Object} container
    * @param {Object} tags
    */
-  Ping.prototype.sendDedupe = function (config, tags) {
+  Ping.prototype.sendDedupe = function (container, tags) {
+    var config = container.config;
     var pingString = "c=" + config.clientId + "&" +
-      "p=" + config.containerId + "&" +
+      "p=" + container.getContainerId() + "&" +
       "l=" + (config.tellLoadTimesProbability) + "&" +
       "pv=" + q.cookie.PageView.update() + "&" +
       "dd=";
@@ -129,9 +133,9 @@
       var loaderId = tag.config.id;
 
       if (loaderId === undefined) {
-        log.WARN("sendDedupe: tag `" + tag.config.name +
-                "` has no ID assigned! Deduplicaton time load " +//L
-                "will not be sent.");//L
+        log.WARN("sendDedupe: tag `" + tag.config.name +/*L*/
+                "` has no ID assigned! Deduplicaton time load " +/*L*/
+                "will not be sent.");/*L*/
       } else if (!tag.dedupePingSent) {
         pingStrings.push(loaderId);
         tag.dedupePingSent = true;
@@ -144,10 +148,10 @@
         "/tag2?" + pingString, null, "GET");
     } else {
       if (!pingStrings.length) {
-        log.FINE("sendDedupe: no dedupe pings to sent");
+        log.FINE("sendDedupe: no dedupe pings to sent");/*L*/
       }
       if (!config.pingServerUrl) {
-        log.WARN("sendDedupe: config.pingServerUrl is unset!");
+        log.WARN("sendDedupe: config.pingServerUrl is unset!");/*L*/
       }
     }
   };

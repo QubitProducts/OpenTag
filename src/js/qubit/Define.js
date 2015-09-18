@@ -1,4 +1,4 @@
-//:include GLOBAL.js
+//:import GLOBAL
 
 /*
  * Opentag, a tag deployment platform
@@ -28,6 +28,13 @@
    */
   Define.global = function () {
     return GLOBAL;
+  };
+
+  Define.clientSpaceClasspath = function () {
+    if (window.qubit.CLIENT_CONFIG) {
+      return "qubit.cs.d" + window.qubit.CLIENT_CONFIG.id;
+    }
+    return "qubit.cs";
   };
 
   /**
@@ -60,7 +67,8 @@
   Define.namespace = function (path, instance, pckg, noOverride) {
     return _namespace(path, instance, pckg, noOverride, false);
   };
-  
+
+
   function _namespace(path, instance, pckg, noOverride, isGlobal) {
     var files = path.split("."),
       //access eval INDIRECT so it is called globally
@@ -99,44 +107,129 @@
       last[lastName] = last[lastName] || {};
     }
     
+    if (instance) {
+      instance.CLASSPATH = files.join(".");
+      files.splice(files.length - 1, 1);
+      instance.PACKAGE_NAME = files.join(".");
+    }
+  
     return {
       root: root,
-      object: last
+      object: last,
+      instance: last[lastName]
     };
   }
+
+  
+  /**
+   * Function behaves exactly the same as `Define.namespace`, with the 
+   * difference that path will be prefixed with client space namespace 
+   * ("qubit.cs").
+   * 
+   * Function builds desired name space in defalt PKG_ROOT scope.
+   * It will not override existing elements.
+   * @param {String} path dot notation based objects path.
+   * @param {Object} instance reference to be put as last `object` node. 
+   *                  If `undefined` empty object will be used.
+   * @param {Object} pckg object to start namespace at
+   * @param {Boolean} noOverride if set, "instance" parameter will not override
+   *    if object already exists in namespace. Can be ignored if 
+   *    `GLOBAL.TAGSDK_NS_OVERRIDE` is set to true (no overriding mode)
+   * @returns {Object} `{root, object}` pair where namespace starts at "root" 
+   *        and ends at "object". "object" is the top element namespace created.
+   */
+  Define.clientNamespace = function (path, instance, pckg, noOverride) {
+    return Define.namespace(
+      Define.clientSpaceClasspath() + "." + path, instance, pckg, noOverride);
+  };
 
   /**
    * Utility for simple class declaration (not definition).
    * It does similiar job as namespace with addition of adding CLASS_NAME
-   * and PACKAGE_NAME on prototype. It also sets superclass to extending class
-   * instance.
+   * and PACKAGE_NAME on prototype. It also sets SUPER to extending class
+   * Class.
    * 
    * @param {String} path
-   * @param {Object} instance
-   * @param {Function} extendingClass
+   * @param {Object} Class
+   * @param {Function} SuperClass
    * @param {Object} pckg
    * @param {Object} config
-   * @returns {Object} the class instance
+   * @returns {Object} the class Class
    */
-  Define.clazz = function (path, instance, extendingClass, pckg, config) {
-    Define.namespace(path, instance, pckg, true);
-    if (typeof(extendingClass) === "function") {
-      instance.superclass = extendingClass;
-      instance.prototype = new instance.superclass(config);
+  Define.clazz = function (path, Class, SuperClass, pckg, config) {
+    Define.namespace(path, Class, pckg, true);
+    if (typeof(SuperClass) === "function") {
+      Class.SUPER = SuperClass;//also used by Utils.defineWrappedClass
+      Class.superclass = SuperClass; //deprecated use SUPER
+      Class.prototype = new SuperClass(config);
+      Class.prototype.SUPER = SuperClass;
+      Class.prototype.CLASS = Class;
     }
     var names = path.split(".");
-    if (instance.prototype) {
-      instance.prototype.CLASS_NAME = names[names.length - 1];
+    if (Class.prototype) {
+      Class.prototype.CLASSPATH = names.join(".");
+      Class.prototype.CLASS_NAME = names[names.length - 1];
       names.splice(names.length - 1, 1);
-      instance.prototype.PACKAGE_NAME = names.join(".");
+      Class.prototype.PACKAGE_NAME = names.join(".");
     } else {
-      instance.STATIC_NAME = names[names.length - 1];
+      Class.CLASSPATH = names.join(".");
+      Class.STATIC_NAME = names[names.length - 1];
       names.splice(names.length - 1, 1);
-      instance.PACKAGE_NAME = names.join(".");
+      Class.PACKAGE_NAME = names.join(".");
     }
-    return instance;
+    return Class;
   };
 
   Define.clazz("qubit.Define", Define);
+
+  /**
+   * Function behaves exactly the same as `Define.clazz`, with the 
+   * difference that path will be prefixed with client space namespace 
+   * ("qubit.cs").
+   * Utility for simple class declaration (not definition).
+   * It does similiar job as namespace with addition of adding CLASS_NAME
+   * and PACKAGE_NAME on prototype. It also sets SUPER to extending class
+   * Class.
+   * 
+   * @param {String} path
+   * @param {Object} Class
+   * @param {Function} SuperClass
+   * @param {Object} pckg
+   * @param {Object} config
+   * @returns {Object} the class Class
+   */
+  Define.clientClazz = function (path, Class, SuperClass, pckg, config) {
+    return Define.clazz(
+      Define.clientSpaceClasspath() + "." + path,
+      Class,
+      SuperClass,
+      pckg,
+      config);
+  };
   
+  Define.vendorsSpaceClasspath = function () {
+    var cp = qubit.VENDOR_SPACE_CP;
+    return (cp === undefined || cp === null) ? "qubit.vs" : cp;
+  };
+  
+  var _vspace = 
+    Define.namespace(Define.vendorsSpaceClasspath(), {}, null, true).instance;
+  
+  Define.getVendorSpace = function () {
+    return _vspace;
+  };
+  
+  Define.vendorNamespace = function (path, instance, pckg, noOverride) {
+    return Define.namespace(
+      Define.vendorsSpaceClasspath() + "." + path, instance, pckg, noOverride);
+  };
+  
+  Define.vendorClazz = function (path, Class, SuperClass, pckg, config) {
+    return Define.clazz(
+      Define.vendorsSpaceClasspath() + "." + path,
+      Class,
+      SuperClass,
+      pckg,
+      config);
+  };
 }());

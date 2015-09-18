@@ -5,9 +5,9 @@
  * and open the template in the editor.
  */
 
-//:include GLOBAL.js
-//:include qubit/opentag/Utils.js
-//:include qubit/Define.js
+//:import GLOBAL
+//:import qubit.opentag.Utils
+//:import qubit.Define
 
 (function () {
   var Define = qubit.Define;
@@ -50,7 +50,7 @@
         try {
           calls[i]();
         } catch (ex) {
-          this.log.ERROR("Error while running event: " + ex);
+          this.log.ERROR("Error while running event: " + ex);/*L*/
         }
       }
     }

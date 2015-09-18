@@ -1,5 +1,5 @@
-//:include qubit/Define.js
-//:include qubit/opentag/Log.js
+//:import qubit.Define
+//:import qubit.opentag.Log
 
 /*
  * TagSDK, a tag development platform
@@ -38,8 +38,8 @@
    */
   function Timer(config) {
     if (config) {
-      log.FINEST("Config:");
-      log.FINEST(config, true);
+      log.FINEST("Config:");/*L*/
+      log.FINEST(config, true);/*L*/
      /**
       * @private
       * Please use setRate to update timers rate
@@ -97,7 +97,7 @@
       if (this.config && this.config.name) {
         name = "[" + this.config.name + "]";
       }
-      log.FINEST(name + "Pooling in progress...");
+      log.FINEST(name + "Pooling in progress...");/*L*/
     }, 5000, this._lck_obj);
 
     this.callTimers();
@@ -125,7 +125,7 @@
         try {
           timer.execute();
         } catch (e) {
-          log.ERROR("Error calling timer: " + e);
+          log.ERROR("Error calling timer: " + e);/*L*/
         }
         this.timers.splice(i, 1);
         --i;
@@ -139,7 +139,7 @@
    */
   Timer.prototype.cancellAll = function () {
     this.timers = [];
-    log.WARN("Cancelling all stack.");
+    log.WARN("Cancelling all stack.");/*L*/
   };
 
   /**
@@ -192,10 +192,12 @@
    * it will not be scheduled.**
    * @param {Function} fun Function to be run.
    * @param {Number} time No more often then `time` in ms.
-   * @param {Object} lockObj Lock object (empty object used as a lock)
+   * @param {Object} lockObj Lock object (empty object used as a lock). 
+   *   This should be a reference hold outside, if unset, fun will be used.
    * @returns {Boolean} True if function was run immediately.
    */
   Timer.prototype.runIfNotScheduled = function (fun, time, lockObj) {
+    lockObj = lockObj || fun;
     if (lockObj.__lastRun__ &&
           (new Date().valueOf() < (time + lockObj.__lastRun__))) {
       return this.schedule(fun, time, lockObj);
@@ -256,7 +258,7 @@
    * @returns {Object} setInterval return
    */
   Timer.prototype.setInterval = function (call, time) {
-    log.FINEST("Native wrapper");
+    log.FINEST("Native wrapper");/*L*/
     var interv =  setInterval(call, time);
     this.inervals.push(interv);
     return interv;

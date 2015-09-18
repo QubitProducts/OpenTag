@@ -1,6 +1,8 @@
-//:include qubit/opentag/Log.js
-//:include qubit/Define.js
-//:include qubit/opentag/filter/BaseFilter.js
+//:import qubit.opentag.Log
+//:import qubit.opentag.Utils
+//:import qubit.Define
+//:import qubit.opentag.filter.BaseFilter
+//:import qubit.opentag.filter.URLFilter
 
 /*
  * TagSDK, a tag development platform
@@ -11,6 +13,8 @@
 
 (function () {
   var BaseFilter = qubit.opentag.filter.BaseFilter;
+  var URLFilter = qubit.opentag.filter.URLFilter;
+  var Utils = qubit.opentag.Utils;
 
   /**
    * #SessionVariable filter class.
@@ -43,9 +47,10 @@
    * 
    * 
    * @class qubit.opentag.filter.SessionVariableFilter
-   * @extends qubit.opentag.filter.BaseFilter
+   * @extends qubit.opentag.filter.URLFilter
    * @param config {Object} config object used to build instance
    */
+  var sessionVariableFilterCount = 0;
   function SessionVariableFilter(config) {
     var defaultConfig = {
       /**
@@ -82,15 +87,16 @@
           defaultConfig[prop] = config[prop];
         }
       }
+      this.uid = "f" + (sessionVariableFilterCount++);
     }
-    
-    SessionVariableFilter.superclass.call(this, defaultConfig);
+    this.tagsToRun = [];
+    SessionVariableFilter.SUPER.call(this, defaultConfig);
   }
   
   qubit.Define.clazz(
           "qubit.opentag.filter.SessionVariableFilter",
           SessionVariableFilter,
-          BaseFilter);
+          URLFilter);
   
   /**
    * Custom starter function for session filter.
@@ -111,6 +117,17 @@
                                                           tag) {
     ready(false);
   };
+  
+  SessionVariableFilter.prototype.isAllStartersDefaults = function () {
+    if (this.customStarter !== SessionVariableFilter.prototype.customStarter) {
+      return false;
+    }
+    if (this.customScript !== SessionVariableFilter.prototype.customScript) {
+      return false;
+    }
+    return true;
+  };
+  
   /**
    * Script deciding either script matches or not (top API level).
    * This function can be overrided by `config.customScript` function.
@@ -126,16 +143,20 @@
    * Match function for a filter.
    * @returns {Boolean}
    */
-  SessionVariableFilter.prototype.match = function () {
+  SessionVariableFilter.prototype.match = function (url) {
+    var match = true;
     try {
       if (this._matchState === undefined) {
         this._matchState = !!this.customScript(this.getSession());
       }
-      return this._matchState;
+      match = this._matchState;
     } catch (ex) {
-      this.log.FINE("Filter match throws exception:" + ex);
-      return false;
+      this.log.FINE("Filter match throws exception:" + ex);/*L*/
+      match = false;
     }
+    
+    return match && SessionVariableFilter.SUPER.prototype
+            .match.call(this, url);
   };
   
   /**
@@ -144,19 +165,43 @@
    * @param {qubit.opentag.BaseTag} tag
    */
   SessionVariableFilter.prototype.runTag = function (tag) {
+    Utils.addToArrayIfNotExist(this.tagsToRun, tag);
     if (!this._runTag) {
       if (this.customStarter) {
+        var callback = function (rerun) {
+          this.lastRun = new Date().valueOf();
+          this._processQueuedTagsToRun(rerun);
+          this._rerun = rerun;
+          //done
+        }.bind(this);
+        
         //trigger "customStarter", only once
         this._runTag = true;
-        this.customStarter(this.getSession(), function (rerun) {
-          this.lastRun = new Date().valueOf();
-          if (rerun === true) {
-            tag.run();
-          } else {
-            tag.runOnce();
-          }
-          //done
-        }.bind(this), tag);
+        this.customStarter(this.getSession(), callback, tag);
+      }
+    } else {
+      if (this.lastRun) {//if the callback was already run. Note: if callback
+        //hasnt be called, tags are queued to execute.
+        if (this._rerun === true) {
+          tag.run();
+        } else {
+          tag.runOnce();
+        }
+      }
+    }
+  };
+  
+  /**
+   * @private
+   * Strictly private.
+   */
+  SessionVariableFilter.prototype._processQueuedTagsToRun = function (rerun) {
+    for (var i = 0; i < this.tagsToRun.length; i++) {
+      var tag = this.tagsToRun[i];
+      if (rerun === true) {
+        tag.run();
+      } else {
+        tag.runOnce();
       }
     }
   };
@@ -170,7 +215,7 @@
     if (session) {
       this.setSession(session);
     }
-    var pass = SessionVariableFilter.superclass.prototype.getState.call(this);
+    var pass = SessionVariableFilter.SUPER.prototype.getState.call(this);
     
     if (pass === BaseFilter.state.DISABLED) {
       return BaseFilter.state.DISABLED;
@@ -195,7 +240,9 @@
    */
   SessionVariableFilter.prototype.reset = function () {
     this._matchState = undefined;
-    SessionVariableFilter.superclass.prototype.reset.call(this);
+    SessionVariableFilter.SUPER.prototype.reset.call(this);
     this._runTag = undefined;
+    this.lastRun = undefined;
+    this.tagsToRun = [];
   };
 }());

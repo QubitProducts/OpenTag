@@ -1,6 +1,6 @@
-//:include qubit/Define.js
-//:include qubit/opentag/Utils.js
-//:include qubit/opentag/pagevariable/BaseVariable.js
+//:import qubit.Define
+//:import qubit.opentag.Utils
+//:import qubit.opentag.pagevariable.BaseVariable
 
 /*
  * TagSDK, a tag development platform
@@ -21,7 +21,7 @@
    * @param config {Object} config object used to build instance
    */
   function DOMText(config) {
-    DOMText.superclass.apply(this, arguments);
+    DOMText.SUPER.apply(this, arguments);
   }
   
   qubit.Define.clazz(
@@ -33,7 +33,7 @@
    * @returns {String} returns DOM string text value (not inner html)
    */
   DOMText.prototype.getValue = function () {
-    this.log.FINEST("reading DOM element contents value");
+    this.log.FINEST("reading DOM element contents value");/*L*/
     return Utils.getElementValue(this.value);
   };
   

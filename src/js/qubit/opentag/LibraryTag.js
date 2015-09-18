@@ -1,7 +1,7 @@
-//:include GLOBAL.js
-//:include qubit/Define.js
-//:include qubit/opentag/Utils.js
-//:include qubit/opentag/BaseTag.js
+//:import GLOBAL
+//:import qubit.Define
+//:import qubit.opentag.Utils
+//:import qubit.opentag.BaseTag
 
 /*
  * TagSDK, a tag development platform
@@ -35,13 +35,13 @@
       var path = this.PACKAGE_NAME  + "." + this.CLASS_NAME;
       var zuper = qubit.opentag.Utils.getObjectUsingPath(path, PKG_ROOT);
       if (zuper.__instance) {
-        zuper.__instance.log.FINEST("Returning singleton instance.");
+        zuper.__instance.log.FINEST("Returning singleton instance.");/*L*/
         return zuper.__instance;
       }
       zuper.__instance = this;
     }
     
-    LibraryTag.superclass.call(this, config); 
+    LibraryTag.SUPER.call(this, config); 
   }
   
   qubit.Define.clazz(
@@ -71,7 +71,7 @@
      * Library description..
      * @cfg {String} [description="Provide description."]
      */
-    description: "Provide description.",
+    description: "",
     /**
      * Is library asynchoronous?
      * @cfg {String} [async=true]
@@ -104,7 +104,7 @@
    * @event 
    */
   LibraryTag.prototype.pre = function () {
-    this.log.FINEST("emtpy pre called");
+    this.log.FINEST("emtpy pre called");/*L*/
   };
   
   /**
@@ -112,43 +112,70 @@
    * @event
    */
   LibraryTag.prototype.post = function () {
-    this.log.FINEST("emtpy post called");
+    this.log.FINEST("emtpy post called");/*L*/
   };
+  
+  function extractAndEvalFunctionBody(fun, tag) {
+    var expr = fun.toString();
+    expr = expr.replace(/\s*function\s*\([\w\s,_\d\$]*\)\s*\{/, "");
+    expr = expr.substring(0, expr.lastIndexOf("}"));
+    
+    expr = expr.replace(
+      /(["']\s*\+\s*)\s*_*this\s*\.\s*valueForToken\s*\(\s*'([^']*)'\s*\)/g,
+      "$1\"${$2}\"");
+    expr = expr.replace(
+      /\s*_*this\s*\.\s*valueForToken\s*\(\s*'([^']*)'\s*\)(\s*\+\s*["'])/g,
+      "\"${$1}\"$2");
+    
+    expr = expr.replace(
+      /(["']\s*\+\s*)\s*_*this\s*\.\s*valueForToken\s*\(\s*"([^"]*)"\s*\)/g,
+      "$1\"${$2}\"");
+    expr = expr.replace(
+      /\s*_*this\s*\.\s*valueForToken\s*\(\s*"([^"]*)"\s*\)(\s*\+\s*["'])/g,
+      "\"${$1}\"$2");
+    
+    expr = expr.replace(/\s*_*this\s*\.\s*valueForToken\s*\(\s*'([^']*)'\s*\)/g,
+      "${$1}");
+    expr = expr.replace(/\s*_*this\s*\.\s*valueForToken\s*\(\s*"([^"]*)"\s*\)/g,
+      "${$1}");
+    expr = tag.replaceTokensWithValues(expr);
+    Utils.geval(expr);
+  }
   
   /**
    * Callback triggered always before loading tag.
    * Can be called only once, any repeated calls will have no effect.
    */
   LibraryTag.prototype.before = function () {
-    LibraryTag.superclass.prototype.before.call(this);
+    LibraryTag.SUPER.prototype.before.call(this);
     
-    if (this.config.html || this.config.script) {
-      this.log.WARN("config.html or config.script is set while using pre." +
-              " Cancelling running pre.");//L
+    if (this.getHtml() || this.config.script) {
+      this.log.FINE("html or config.script is set while using pre." +/*L*/
+              " Cancelling running pre.");/*L*/
       return false;//continue normally
     }
     
-    this.log.INFO("Running PRE script execution...");
+    this.log.INFO("Running PRE script execution...");/*L*/
     try {
       var cfg = this.config;
       if (cfg && cfg.pre) {
         if (typeof(cfg.pre) === "function") {
           this.pre = cfg.pre;
-          this.pre();
         } else {
           var expr = this.replaceTokensWithValues(String(cfg.pre));
-          if (this.config.prePostWindowScope) {
-            Utils.geval(expr);
-          } else {
-            this.pre = Utils.expressionToFunction(expr).bind(this);
-            this.pre();
-          }
+          this.pre = Utils.expressionToFunction(expr).bind(this);
         }
+      }
+      if (this.config.prePostWindowScope && 
+              this.pre !== LibraryTag.prototype.pre &&
+              this.pre.toString) {
+        extractAndEvalFunctionBody(this.pre, this);
       } else {
         this.pre();
       }
     } catch (ex) {
-      this.log.ERROR(this.config.name + " exception while running pre: " + ex);
+      this.log.ERROR(/*L*/
+        this.config.name + " exception while running pre: " + ex);/*L*/
       return true;//cancel running 
     }
     return false;
@@ -160,40 +187,39 @@
    * @param success if tag execution was successful
    */
   LibraryTag.prototype.after = function (success) {
-    LibraryTag.superclass.prototype.after.call(this, success);
-    if (this.config.html || this.config.script) {
-      this.log.WARN("config.html or config.script is set while using post." +
-              " Cancelling running post.");//L
+    LibraryTag.SUPER.prototype.after.call(this, success);
+    if (this.getHtml() || this.config.script) {
+      this.log.WARN("html or config.script is set while using post." +/*L*/
+              " Cancelling running post.");/*L*/
       return;
     }
     
-    this.log.INFO("Running POST script execution...");
+    this.log.INFO("Running POST script execution...");/*L*/
     try {
       var cfg = this.config;
       if (cfg && cfg.post) {
         if (typeof(cfg.post) === "function") {
           this.post = cfg.post;
-          this.post(success);
         } else {
           var expr = this.replaceTokensWithValues(String(cfg.post));
-          if (this.config.prePostWindowScope) {
-            Utils.geval(expr);
-          } else {
-            this.post = Utils.expressionToFunction(expr).bind(this);
-            this.post(success);
-          }
+          this.post = Utils.expressionToFunction(expr).bind(this);
         }
+      }
+      if (this.config.prePostWindowScope && 
+                this.post !== LibraryTag.prototype.post &&
+                  this.post.toString) {
+        extractAndEvalFunctionBody(this.post, this);
       } else {
         this.post(success);
       }
     } catch (ex) {
-      this.log.ERROR(this.config.name + " exception while running pre: " + ex);
+      this.log.ERROR(/*L*/
+        this.config.name + " exception while running pre: " + ex);/*L*/
     }
   };
   
-  
   /**
-   * Utils.defineClass wrapper for LibraryTag.
+   * Utils.defineWrapperClass wrapper for LibraryTag.
    * 
    * This method is used to easy define a tag library class. Tag Library class 
    * is any class that extends qubit.opentag.LibraryTag class.
@@ -222,8 +248,15 @@
       .replace(/[\.]+$/g, "")
       .replace(/\.+/g, ".");
     
+    namespace = qubit.Define.vendorsSpaceClasspath() + "." + namespace;
+    
     //config must be set in runtime - for each instance
-    var libraryDefaultConfig = libConfig.config;
+    var libraryDefaultConfig = {};
+    
+    if (libConfig.getDefaultConfig) {
+      libraryDefaultConfig = libConfig.getDefaultConfig();
+    }
+    
     var constr = libConfig.CONSTRUCTOR;
     
     //prepare new config that does not override .config object in Library class
@@ -236,33 +269,37 @@
     }
     
     //add new constructor
-    prototypeTemplate.CONSTRUCTOR = function (cfg) {
+    var constructor = function (cfg) {
       //update instance properties for new defaults
       cfg = cfg || {};
-      // @todo repair this
-      var defaultsCopy = Utils.objectCopy(libraryDefaultConfig, {maxDeep: 8});
-      for (var prop in defaultsCopy) {
-        if (!cfg.hasOwnProperty(prop)) {
-          cfg[prop] = defaultsCopy[prop];
-        }
-      }
+      cfg = Utils.overrideFromBtoA(libraryDefaultConfig, cfg);
+      
       // --- standard ---
       //run library standard constructor
       var ret = qubit.opentag.LibraryTag.call(this, cfg);
+      
       //any additional constructor? run it.
       if (constr) {
         constr.call(this, cfg);
       }
+      
       if (ret) {
         return ret;
       }
     };
     
-    var ret = qubit.opentag.Utils
-            .defineClass(namespace, LibraryTag, prototypeTemplate, GLOBAL);
+    var ret = qubit.opentag.Utils.defineWrappedClass(
+      namespace, LibraryTag, prototypeTemplate, GLOBAL, constructor);
     
-    //register them also in qubit scope.
-    Utils.namespace("qubit.opentag.libraries." + namespace, ret);
+    if (namespace.indexOf("qubit.vs.") !== 0) {
+      Utils.namespace("qubit.vs." + namespace, ret);
+    }
+    
     return ret;
   };
+  
+  LibraryTag.getLibraryByClasspath = function (namespace) {
+    return Utils.getObjectUsingPath(namespace, qubit.Define.getVendorSpace());
+  };
+  
 }());

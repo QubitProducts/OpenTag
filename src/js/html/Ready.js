@@ -1,4 +1,4 @@
-//:include html/html.js
+//:import html.html
 
 (function () {
   var DOMContentLoaded,

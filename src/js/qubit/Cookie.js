@@ -1,4 +1,4 @@
-//:include qubit/Define.js
+//:import qubit.Define
 
 /*
  * TagSDK, a tag development platform

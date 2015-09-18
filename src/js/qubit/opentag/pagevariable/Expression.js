@@ -1,6 +1,6 @@
-//:include qubit/Define.js
-//:include qubit/opentag/pagevariable/BaseVariable.js
-//:include qubit/opentag/Timed.js
+//:import qubit.Define
+//:import qubit.opentag.pagevariable.BaseVariable
+//:import qubit.opentag.Timed
 
 /*
  * TagSDK, a tag development platform
@@ -14,7 +14,7 @@
   var Timed = qubit.opentag.Timed;
   
   /**
-   * #Exression type variable class.
+   * #Expression type variable class.
    * 
    * This class controlls how expression based page variables are executed
    * and parsed. It will detect universal variable "arrays" objects with hash
@@ -32,7 +32,7 @@
    */
   function Expression(config) {
     this._lockExprObject = {};
-    Expression.superclass.apply(this, arguments);
+    Expression.SUPER.apply(this, arguments);
   }
   
   qubit.Define.clazz(
@@ -73,9 +73,9 @@
     /*log*/
     Timed.maxFrequent(function () {
       if (this.failMessage) {
-        this.log.FINEST(this.failMessage);
+        this.log.FINEST(this.failMessage);/*L*/
       }
-      this.log.FINEST("getting value from expression: " + ret);
+      this.log.FINEST("getting value from expression: " + ret);/*L*/
     }.bind(this), 10000, this._lockExprObject);
     /*~log*/
     return ret;
@@ -122,7 +122,7 @@
       exp = true;
     }
     //UV case! this is a hack abit - copied logic from origins
-    return Expression.superclass.prototype
+    return Expression.SUPER.prototype
        .replaceToken.call(this, token, string, altValue, exp);
   };
   

@@ -1,11 +1,12 @@
-//:include qubit/Define.js
-//:include qubit/opentag/Utils.js
-//:include qubit/opentag/Timed.js
-//:include qubit/opentag/TagsUtils.js
-//:include qubit/opentag/filter/BaseFilter.js
-//:include qubit/opentag/pagevariable/BaseVariable.js
-//:include qubit/opentag/TagHelper.js
-//:include qubit/opentag/GenericLoader.js
+//:import qubit.Define
+//:import qubit.Cookie
+//:import qubit.opentag.Utils
+//:import qubit.opentag.Timed
+//:import qubit.opentag.TagsUtils
+//:import qubit.opentag.filter.BaseFilter
+//:import qubit.opentag.pagevariable.BaseVariable
+//:import qubit.opentag.TagHelper
+//:import qubit.opentag.GenericLoader
 
 /*
  * TagSDK, a tag development platform
@@ -21,6 +22,9 @@
   var BaseFilter = qubit.opentag.filter.BaseFilter;
   var GenericLoader = qubit.opentag.GenericLoader;
   var TagHelper = qubit.opentag.TagHelper;
+  var BaseVariable = qubit.opentag.pagevariable.BaseVariable;
+  var Cookie = qubit.Cookie;
+  
   var log = new qubit.opentag.Log("BaseTag -> ");
 
   /**
@@ -61,7 +65,7 @@
        * It is optional.
        * This property does not affect this tag itself, it is only configuration
        * property.
-       * @cfg package
+       * @cfg PACKAGE
        * @type Object 
        */
       PACKAGE: (config && config.PACKAGE),
@@ -132,7 +136,7 @@
     
     Utils.setIfUnset(config, defaults);
     
-    BaseTag.superclass.apply(this, arguments);
+    BaseTag.SUPER.apply(this, arguments);
   
     /**
      * Named page variables. These variables are not strictly bonded to any
@@ -184,45 +188,12 @@
       try {
         BaseTag.register(this);
       } catch (ex) {
-        this.log.WARN("Problem with registering tag " + this.config.name);
-        this.log.WARN(ex, true);
+        this.log.WARN("Problem with registering tag " + this.config.name);/*L*/
+        this.log.WARN(ex, true);/*L*/
         // RETHINK THIS, it looks usefull but a bit circural...
       }
       
-      if (config.filters) {
-        for (var i = 0; i < config.filters.length; i++) {
-          this.addFilter(config.filters[i]);
-        }
-      }
-      
-      if (config.parameters) {
-        this.parameters = this.parameters.concat(config.parameters);
-      }
-      
-      if (config.variables) {
-        for (var prop in config.variables) {
-          if (config.variables.hasOwnProperty(prop)) {
-            var param = this.getParameterByTokenName(prop);
-            if (param) {
-              var variable = config.variables[prop];
-              param.variable = variable;
-              if (variable.defaultValue !== undefined) {
-                param.defaultValue = variable.defaultValue;
-              }
-              if (variable.uv !== undefined) {
-                param.uv = variable.uv;
-              }
-            }
-          }
-        }
-      }
-      
-      if (config.locked) {
-        this.lock();
-      }
-      
-      this.log.FINEST("Initializing variables.");
-      this.initPageVariablesForParameters();
+      this.setupConfig(config);
       
       /**
        * @property {String} uniqueRefString This property is 
@@ -230,11 +201,58 @@
        */
       this.uniqueRefString = null;
       
+      if (config.init) {
+        try {
+          config.init.call(this, config);
+        } catch (ex) {
+          this.log.ERROR("init call failed:" + ex);/*L*/
+        }
+      }
+      
       this.onTagInit();
     }
   }
   
   qubit.Define.clazz("qubit.opentag.BaseTag", BaseTag, GenericLoader);
+  
+  BaseTag.prototype.setupConfig = function (config) {
+    if (!config) {
+      return;
+    }
+    
+    if (config.filters) {
+      this.addFilters(config.filters);
+    }
+
+    if (config.parameters) {
+      this.addParameters(config.parameters);
+    }
+
+    if (config.variables) {
+      for (var prop in config.variables) {
+        if (config.variables.hasOwnProperty(prop)) {
+          var param = this.getParameterByTokenName(prop);
+          if (param) {
+            var variable = config.variables[prop];
+            param.variable = variable;
+            if (variable.defaultValue !== undefined) {
+              param.defaultValue = variable.defaultValue;
+            }
+            if (variable.uv !== undefined) {
+              param.uv = variable.uv;
+            }
+          }
+        }
+      }
+    }
+
+    if (config.locked) {
+      this.lock();
+    }
+    
+    this.log.FINEST("Initializing variables.");/*L*/
+    this.initPageVariablesForParameters();
+  };
   
   /**
    * Returns value for a token name.
@@ -263,13 +281,23 @@
       }
       return this.getParameterValue(param, defaults);
     }
-    if (this.namedVariables && this.namedVariables[token]) {
+    var namedVariables = this.namedVariables;
+    if (namedVariables && namedVariables[token]) {
       var variable = _getSetNamedVariable(this, token);
       if (variable) {
         return variable.getRelativeValue(defaults);
       }
     }
     return undefined;
+  };
+  
+  /**
+   * Adding parameters function.
+   * @param {type} parameters
+   * @returns {undefined}
+   */
+  BaseTag.prototype.addParameters = function (parameters) {
+    this.parameters = this.parameters.concat(parameters);
   };
   
   /**
@@ -286,15 +314,16 @@
   BaseTag.prototype.FILTER_WAIT_TIMEOUT = -1;
   
   BaseTag.prototype.run = function () {
+    this.resolveAllDynamicData();
     if (this.config.runner) {
       var ret = false;
       try {
-        this.log.INFO("Running custom runner...");
+        this.log.INFO("Running custom runner...");/*L*/
         this.addState("AWAITING_CALLBACK");
         ret = this._runner = new Date().valueOf();
         this.config.runner.call(this);
       } catch (e) {
-        this.log.ERROR("Error while running custom runner: " + e);
+        this.log.ERROR("Error while running custom runner: " + e);/*L*/
       }
       return ret;
     } else {
@@ -340,11 +369,11 @@
    */
   BaseTag.prototype.start = function () {
     if (!this.locked) {
-      return BaseTag.superclass.prototype.run.call(this);
+      return BaseTag.SUPER.prototype.run.call(this);
     } else {
-      this.log.WARN("Tag is locked. Running delegated.");
+      this.log.WARN("Tag is locked. Running delegated.");/*L*/
       this._unlock = function () {
-        return BaseTag.superclass.prototype.run.call(this);
+        return BaseTag.SUPER.prototype.run.call(this);
       }.bind(this);
       return false;
     }
@@ -358,10 +387,10 @@
    */
   BaseTag.prototype.startOnce = function () {
     if (!this.locked) {
-      return BaseTag.superclass.prototype.runOnce.call(this);
+      return BaseTag.SUPER.prototype.runOnce.call(this);
     } else {
       this._unlock = function () {
-        return BaseTag.superclass.prototype.runOnce.call(this);
+        return BaseTag.SUPER.prototype.runOnce.call(this);
       }.bind(this);
       return false;
     }
@@ -393,6 +422,7 @@
    * @returns {BaseFilter.state}
    */
   BaseTag.prototype.runIfFiltersPass = function () {
+    this.resolveAllDynamicData();
     var state = this.filtersState(true);
     this.addState("FILTER_ACTIVE");
     
@@ -403,20 +433,20 @@
     //it is a number of BaseFilter.state type or time when to stop checking
     if (state === BaseFilter.state.SESSION) {
       this.addState("AWAITING_CALLBACK");
-      this.log.FINE("tag is in session and will be manually triggered " + 
-              "by custom starter");//L
+      this.log.FINE("tag is in session and will be manually triggered " + /*L*/
+              "by custom starter");/*L*/
       this.awaitingCallback = new Date().valueOf();
     } else if (state === BaseFilter.state.PASS) {
       this.filtersPassed = new Date().valueOf();
-      this.log.FINE("tag passed filters tests");
+      this.log.FINE("tag passed filters tests");/*L*/
       try {
         this.onFiltersPassed();
       } catch (ex) {
-        this.log.ERROR("error running onFiltersDelayed:" + ex);
+        this.log.ERROR("error running onFiltersDelayed:" + ex);/*L*/
       }
       this.run();
     } else if (state === BaseFilter.state.FAIL) {
-      this.log.FINE("tag failed to pass filters");
+      this.log.FINE("tag failed to pass filters");/*L*/
       this._markFiltersFailed();
       this._markFinished();
     } else if (state > 0) {
@@ -426,14 +456,14 @@
         //try again in [state] ms in future
         //if state is lesser than 0 its passing call and the end.
         if (!this._awaitingForFilterInformed) {
-          this.log.INFO("filters found indicating for tag to wait " +
-                  "for applicable conditions - waiting...");//L
+          this.log.INFO("filters found indicating for tag to wait " +/*L*/
+                  "for applicable conditions - waiting...");/*L*/
           this._awaitingForFilterInformed = new Date().valueOf();
           
           try {
             this.onFiltersDelayed();
           } catch (ex) {
-            this.log.ERROR("error running onFiltersDelayed:" + ex);
+            this.log.ERROR("error running onFiltersDelayed:" + ex);/*L*/
           }
         }
         this._setTimeout(this.runIfFiltersPass.bind(this), state);
@@ -441,14 +471,14 @@
         this._markFiltersFailed();
         this._markFinished();
         this.filtersRunTimedOut = new Date().valueOf();
-        this.log.WARN("awaiting for filters timed out.");
+        this.log.WARN("awaiting for filters timed out.");/*L*/
       }
     }
     
     try {
       this.onFiltersCheck(state);
     } catch (e) {
-      this.log.ERROR(e);
+      this.log.ERROR(e);/*L*/
     }
     
     return state;
@@ -525,12 +555,12 @@
    * @param {String} stateName
    */
   BaseTag.prototype.addState = function (stateName) {
-    BaseTag.superclass.prototype.addState.call(this, stateName);
+    BaseTag.SUPER.prototype.addState.call(this, stateName);
 
     try {
       BaseTag.onStateChange(this);
     } catch (ex) {
-      this.log.ERROR(ex);
+      this.log.ERROR(ex);/*L*/
     }
 
     this.stateStack = [];
@@ -678,8 +708,88 @@
       failures.push("page variables");
     }
     
-    return BaseTag.superclass.prototype
+    return BaseTag.SUPER.prototype
             .getDependenciesToBeLoaded.call(this, tryDefaults, failures);
+  };
+  
+  BaseTag.prototype.resolveAllDynamicData = function () {
+    this.resolvePageVariables();
+    this.resolveDependencies();
+    this.resolveFilters();
+  };
+  
+  /**
+   * 
+   * @returns {Array} Array of page variables currently used by this tag.
+   */
+  BaseTag.prototype.resolveDependencies = function () {
+    var map = this.failedDependenciesToParse;
+    if (map) {
+      this.failedDependenciesToParse = null;
+      this.addDependenciesList(map, qubit.Define.clientSpaceClasspath());
+    }
+    return this.dependencies;
+  };
+  
+  /**
+   * Function works exactly as addVariablesMap with that difference that prefix
+   * is set to `qubit.Define.clientSpaceClasspath()`
+   * @param {type} map
+   * @returns {undefined}
+   */
+  BaseTag.prototype.addClientVariablesMap = function (map) {
+    this.unresolvedClientVariablesMap = 
+      this.addVariablesMap(map, qubit.Define.clientSpaceClasspath());
+    return this.unresolvedClientVariablesMap;
+  };
+  
+  /**
+   * 
+   * @returns {Array} Array of page variables currently used by this tag.
+   */
+  BaseTag.prototype.resolvePageVariables = function () {
+    var map = this.unresolvedClientVariablesMap;
+    if (map) {
+      this.unresolvedClientVariablesMap = null;
+      this.addClientVariablesMap(map);
+    }
+    return this.getPageVariables();
+  };
+  
+  /**
+   * Function adding variables map
+   * @param {type} map
+   * @returns {undefined}
+   */
+  BaseTag.prototype.addVariablesMap = function (map, ns) {
+    if (!map) {
+      return;
+    }
+    var unresolvedVariablesMap = {};
+    var namedVariables = this.namedVariables;
+    for (var prop in map) {
+      if (map.hasOwnProperty(prop)) {
+        var item = map[prop];
+        if (item instanceof BaseVariable) {
+          namedVariables[prop] = item;
+        } else if (typeof(item) === "string") {
+          var original = item;
+          if (ns) {
+            item = ns + "." + item;
+          }
+          var obj = Utils.getObjectUsingPath(item);
+          if (obj) {
+            namedVariables[prop] = item;
+          } else {
+            unresolvedVariablesMap[prop] = original;
+          }
+        } else {
+          this.log.ERROR("Added variable is of wrong type!");/*L*/
+          this.log.ERROR(item);/*L*/
+        }
+      }
+    }
+    return unresolvedVariablesMap;
   };
   
   /**
@@ -751,7 +861,7 @@
       }
     }
     
-    BaseTag.superclass.prototype._executeScript.call(this);
+    BaseTag.SUPER.prototype._executeScript.call(this);
   };
   
   /**
@@ -844,15 +954,15 @@
       if (variable) {
         try {
           var value;
-          if (defaults) {
+          if (defaults && param.defaultValue !== "") {
             value = Utils.gevalAndReturn(param.defaultValue).result;
           }
           value = variable.getRelativeValue(defaults, value);
           return value;
         } catch (ex) {
-          this.log.ERROR("error while trying to resolve variable value:" + ex);
-          this.log.ERROR("Variable defaults string is invalid: " + 
-                  param.defaultValue);//L
+          this.log.ERROR("error while trying to resolve variable value:" + ex);/*L*/
+          this.log.ERROR("Variable defaults string is invalid: " + /*L*/
+                  param.defaultValue);/*L*/
           return undefined;
           //throw ex;
         }
@@ -879,15 +989,101 @@
   };
   
   /**
-   * Adding filter function.
+   * Adding filter function. It adds filter if it already does not exists in 
+   * filters set.
    * @param filter {qubit.opentag.filter.BaseFilter}
    */
   BaseTag.prototype.addFilter = function (filter) {
-    if (this.session) {
-      filter.setSession(this.session);
-    }
-    this.filters.push(filter);
+    Utils.addToArrayIfNotExist(this.filters, filter);
   };
+  
+  /**
+   * Add filters array - uses `addFilter`.
+   * @param {type} filters
+   * @returns {undefined}
+   */
+  BaseTag.prototype.addFilters = function (filters) {
+    for (var i = 0; i < filters.length; i++) {
+      this.addFilter(filters[i]);
+    }
+  };
+  
+  /**
+   * 
+   * @param {type} filters
+   * @returns {undefined}
+   */
+  BaseTag.prototype.addClientFiltersList = function (filters) {
+    this.unresolvedClientFilterClasspaths = 
+      this.addFiltersList(filters, qubit.Define.clientSpaceClasspath());
+    return this.unresolvedClientFilterClasspaths;
+  };
+  
+  /**
+   * Use this method to resolve and get all tag's filters.
+   * @returns {Array}
+   */
+  BaseTag.prototype.resolveFilters = function () {
+    var list = this.unresolvedClientFilterClasspaths;
+    if (list) {
+      this.unresolvedClientFilterClasspaths = null;
+      this.addClientFiltersList(list);
+    }
+    return this.filters;
+  };
+  
+  /**
+   * 
+   * @param {type} filters
+   * @param {type} ns
+   * @returns {undefined}
+   */
+  BaseTag.prototype.addFiltersList = function (filters, ns) {
+    var unresolved = [];
+    for (var i = 0; i < filters.length; i++) {
+      try {
+        var filter = filters[i];
+        var tmp = filter;
+        var cp = null;
+        
+        if (typeof (filter) === "string") {
+          if (ns) {
+            filter = ns + "." + filter;
+          }
+          cp = filter;
+          filter = Utils.getObjectUsingPath(filter);
+        }
+
+        if (typeof (filter) === "function") {
+          var FilterClass = filter;//linter
+          filter = new FilterClass();
+        }
+        
+        if (!filter) {
+          this.log.FINE("Filter " + tmp + " does NOT exists.");/*L*/
+        }
+        
+        if (!filter instanceof BaseFilter) {
+          this.log.ERROR("Not a filter! ", filter);/*L*/
+          filter = null;
+        }
+        
+        if (filter) {
+          this.addFilter(filter);
+        } else {
+          if (cp) {
+            Utils.addToArrayIfNotExist(unresolved, cp);
+          }
+        }
+      } catch (ex) {
+        this.log.FINE("Failed adding filter: " + filters[i]);/*L*/
+        this.failedFilters = this.failedFilters || [];
+        this.failedFilters.push(filters[i]);
+      }
+    }
+    return unresolved;
+  };
+  
   
   /**
    * Reset tag method, it will bring tag to its initial state so it can be
@@ -895,7 +1091,7 @@
    * Used for debugging purposes.
    */
   BaseTag.prototype.reset = function () {
-    BaseTag.superclass.prototype.reset.call(this);
+    BaseTag.SUPER.prototype.reset.call(this);
     this.resetFilters();
     var u;
     this.filtersPassed = u;
@@ -960,13 +1156,13 @@
    * @param {BaseTag} tag
    */
   BaseTag.register = function (tag) {
-    log.FINEST("registering tag named \"" +
-            tag.config.name + "\", instance of:");//L
-    log.FINEST(tag, true);
+    log.FINEST("registering tag named \"" +/*L*/
+            tag.config.name + "\", instance of:");/*L*/
+    log.FINEST(tag, true);/*L*/
     var index = Utils.addToArrayIfNotExist(tags, tag);
-    if (index !== -1) {
-      log.FINE("tag already exists in tags registry.");
-    }
+    if (index !== -1) {/*L*/
+      log.FINE("tag already exists in tags registry.");/*L*/
+    }/*L*/
     if (index === -1) {
       tag._tagIndex = tags.length - 1;
     } else {
@@ -976,6 +1172,8 @@
       var str = "Q" + tag.config.id;
       UNIQUE_REF[str] = tag;
       tag.uniqueId = str;
+    } else {
+      UNIQUE_REF[tag.CLASSPATH] = tag;
     }
   };
   
@@ -1012,13 +1210,13 @@
    * @param {qubit.opentag.BaseTag} tag
    */
   BaseTag.unregister = function (tag) {
-    log.FINEST("Un-registering tag named \"" +
-            tag.config.name + "\", instance of:");//L
-    log.FINEST(tag, true);
+    log.FINEST("Un-registering tag named \"" +/*L*/
+            tag.config.name + "\", instance of:");/*L*/
+    log.FINEST(tag, true);/*L*/
     var index = Utils.removeFromArray(tags, tag);
-    if (!index || index.length === 0) {
-      log.FINEST("tag " + tag.config.name + " is already unregisterd.");
-    }
+    if (!index || index.length === 0) {/*L*/
+      log.FINEST("tag " + tag.config.name + " is already unregisterd.");/*L*/
+    }/*L*/
 
     tag._tagIndex = -1;
   };
@@ -1063,11 +1261,12 @@
                 .validateAndGetVariableForParameter(params[i]);
       }
     }
-    if (this.namedVariables) {
-      for (var prop in this.namedVariables) {
-        if (this.namedVariables.hasOwnProperty(prop)) {
-          this.namedVariables[prop] = 
-                  TagHelper.initPageVariable(this.namedVariables[prop]);
+    var namedVariables = this.namedVariables;
+    if (namedVariables) {
+      for (var prop in namedVariables) {
+        if (namedVariables.hasOwnProperty(prop)) {
+          namedVariables[prop] = 
+            TagHelper.initPageVariable(namedVariables[prop]);
         }
       }
     }
@@ -1126,9 +1325,10 @@
   BaseTag.prototype.getVariableForParameter = function (param) {
     var variable = TagHelper.validateAndGetVariableForParameter(param);
     var existAndIsNotEmpty = variable && !variable.config.empty;
+    var namedVariables = this.namedVariables;
     if (!existAndIsNotEmpty && 
-            (this.namedVariables && this.namedVariables[param.token])) {
-      // @todo clean it up
+            (namedVariables && namedVariables[param.token])) {
+      //@todo clean it up
       //use alternative value
       variable = _getSetNamedVariable(this, param.token);
     }
@@ -1150,9 +1350,9 @@
    *  
    *  variable - direct variable reference
    */
-  BaseTag.prototype.checkVariablesState = function () {
+  BaseTag.prototype.printVariablesState = function () {
     var res = [];
-    this.log.FINE("Tag has been timed out, showing variables:");
+    this.log.FINE("Tag has been timed out, showing variables:");/*L*/
     var pairs = TagHelper.getAllVariablesWithParameters(this);
     
     for (var i = 0; i < pairs.length; i++) {
@@ -1194,13 +1394,14 @@
    * Triggers onLoadTimeout event.
    */
   BaseTag.prototype._triggerOnLoadTimeout = function () {
-    this.checkVariablesState();//L
+    this.printVariablesState();/*L*/
     this.onLoadTimeout();
   };
 
   function _getSetNamedVariable(tag, token) {
-    var variable = TagHelper.initPageVariable(tag.namedVariables[token]);
-    tag.namedVariables[token] = variable;
+    var namedVariables = tag.namedVariables;
+    var variable = TagHelper.initPageVariable(namedVariables[token]);
+    namedVariables[token] = variable;
     return variable;
   }
   
@@ -1212,14 +1413,15 @@
     return id;
   };
   
-  var cookiePrefix = "qubit.tag.forceRunning_";
+  var forceCookiePrefix = "qubit.tag.forceRunning_";
+  var disableCookiePrefix = "qubit.tag.disableRunning_";
   var cookieRunAll = "qubit.tag.forceAllToRun";
   
   BaseTag.prototype.cookieSaysToRunEvenIfDisabled = function () {
     var id = this._getUniqueId();
-    var ret = !!qubit.Cookie.get(cookieRunAll);
+    var ret = !!Cookie.get(cookieRunAll);
     if (!ret) {
-      ret = !!qubit.Cookie.get(cookiePrefix + id);
+      ret = !!Cookie.get(forceCookiePrefix + id);
     }
     return ret;
   };
@@ -1231,7 +1433,7 @@
    */
   BaseTag.prototype.setCookieForcingTagToRun = function () {
     var id = this._getUniqueId();
-    qubit.Cookie.set(cookiePrefix + id, "true");
+    Cookie.set(forceCookiePrefix + id, "true");
   };
   
   /**
@@ -1240,7 +1442,32 @@
    * To clear cookie set by this method, use `rmCookieForcingTagsToRun()`.
    */
   BaseTag.setCookieForcingTagsToRun = function () {
-    qubit.Cookie.set(cookieRunAll, "true");
+    Cookie.set(cookieRunAll, "true");
+  };
+  
+  /**
+   * 
+   */
+  BaseTag.prototype.setCookieToDisable = function () {
+    var id = this._getUniqueId();
+    Cookie.set(disableCookiePrefix + id, "true");
+  };
+  
+  /**
+   * 
+   */
+  BaseTag.prototype.rmCookieToDisable = function () {
+    var id = this._getUniqueId();
+    Cookie.rm(disableCookiePrefix + id);
+  };
+  
+  /**
+   * 
+   * @returns {Boolean} if disabled by cookie
+   */
+  BaseTag.prototype.disabledByCookie = function () {
+    var id = this._getUniqueId();
+    return !!Cookie.get(disableCookiePrefix + id);
   };
   
   /**
@@ -1248,7 +1475,7 @@
    * `setCookieForcingTagsToR`setCookieForcingTagsToRun()`.
    */
   BaseTag.rmCookieForcingTagsToRun = function () {
-    qubit.Cookie.rm(cookieRunAll);
+    Cookie.rm(cookieRunAll);
   };
   
   /**
@@ -1257,7 +1484,14 @@
    */
   BaseTag.prototype.rmCookieForcingTagToRun = function () {
     var id = this._getUniqueId();
-    qubit.Cookie.rm(cookiePrefix + id);
+    Cookie.rm(forceCookiePrefix + id);
+  };
+  
+  /**
+   * 
+   */
+  BaseTag.rmAllDisablingCookies = function () {
+    Utils.rmCookiesMatching(disableCookiePrefix);
   };
   
   /**
@@ -1267,13 +1501,7 @@
    * `setCookieForcingTagsToRun()`.
    */
   BaseTag.rmAllCookiesForcingTagToRun = function () {
-    var cookies = qubit.Cookie.getAll();
-    for (var i = 0; i < cookies.length; i++) {
-      var name = cookies[i][0];
-      if (name.indexOf(cookiePrefix) === 0) {
-        qubit.Cookie.rm(name);
-      }
-    }
+    Utils.rmCookiesMatching(forceCookiePrefix);
     BaseTag.rmCookieForcingTagsToRun();
   };
 }());

@@ -1,5 +1,5 @@
 /*NO LOG*/
-//:include qubit/Define.js
+//:import qubit.Define
 /* jshint white: false */
 
 /*

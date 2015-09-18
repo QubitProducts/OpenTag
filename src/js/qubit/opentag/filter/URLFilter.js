@@ -1,9 +1,9 @@
-//:include qubit/opentag/Log.js
-//:include qubit/Define.js
-//:include qubit/opentag/Utils.js
-//:include qubit/opentag/Timed.js
-//:include qubit/opentag/filter/BaseFilter.js
-//:include qubit/opentag/filter/pattern/PatternType.js
+//:import qubit.opentag.Log
+//:import qubit.Define
+//:import qubit.opentag.Utils
+//:import qubit.opentag.Timed
+//:import qubit.opentag.filter.BaseFilter
+//:import qubit.opentag.filter.pattern.PatternType
 
 /*
  * TagSDK, a tag development platform
@@ -19,6 +19,9 @@
   var PatternType = qubit.opentag.filter.pattern.PatternType;
     
   /**
+   * @class qubit.opentag.filter.URLFilter
+   * @extends qubit.opentag.filter.BaseFilter
+   * @param config {Object} config object used to build instance
    * #URLFilter filter class.
    * 
    * This filter class implements various URL matching patterns, see
@@ -26,9 +29,6 @@
    * for more details.
    * 
    * 
-   * @class qubit.opentag.filter.URLFilter
-   * @extends qubit.opentag.filter.BaseFilter
-   * @param config {Object} config object used to build instance
    */
   function URLFilter(config) {
     this._lockObject = {};
@@ -54,10 +54,17 @@
       }
     }
     
-    URLFilter.superclass.call(this, defaultConfig);
+    URLFilter.SUPER.call(this, defaultConfig);
   }
   
   qubit.Define.clazz("qubit.opentag.filter.URLFilter", URLFilter, BaseFilter);
+  
+  /**
+   * @property PATTERNS
+   * PATTERNS shortcut for PatternType
+   * 
+   */
+  URLFilter.prototype.PATTERNS = PatternType;
   
   /**
    * URL getting wrapper.
@@ -106,12 +113,12 @@
     }
     /*log*/
     Timed.maxFrequent(function () {
-      this.log.FINEST("[ Filter " + this.config.name +
-              "] Checking if patternType '" +//L
-              this.config.patternType + "' match '" +//L
-              pattern + "' pattern: " +//L
-              (match ? ("Yes -> " + match) : "No") +//L
-              ", include: " + (this.config.include));//L
+      this.log.FINEST("[ Filter " + this.config.name + /*L*/
+              "] Checking if patternType '" +/*L*/
+              this.config.patternType + "' match '" +/*L*/
+              pattern + "' pattern: " +/*L*/
+              (match ? ("Yes -> " + match) : "No") +/*L*/
+              ", include: " + (this.config.include));/*L*/
     }.bind(this), 1000, this._lockObject);
     /*~log*/
     return match;

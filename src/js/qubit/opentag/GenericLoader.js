@@ -1,10 +1,10 @@
-//:include qubit/Define.js
-//:include qubit/Events.js
-//:include qubit/opentag/Utils.js
-//:include qubit/opentag/Timed.js
-//:include qubit/opentag/TagsUtils.js
-//:include qubit/opentag/TagHelper.js
-//:include qubit/opentag/Log.js
+//:import qubit.Define
+//:import qubit.Events
+//:import qubit.opentag.Utils
+//:import qubit.opentag.Timed
+//:import qubit.opentag.TagsUtils
+//:import qubit.opentag.TagHelper
+//:import qubit.opentag.Log
 
 /* global EMPTY_FUN, qubit */
 
@@ -123,7 +123,8 @@
     
     this._depLoadedHandler = function () {
       if (this.dependenciesLoaded() && this.awaitingDependencies) {
-        this.log.FINE("All dependencies has run successfuly. Triggering load.");
+        this.log.FINE(/*L*/
+          "All dependencies has run successfuly. Triggering load.");/*L*/
         this._triggerLoadingAndExecution();
       }
     }.bind(this);
@@ -275,11 +276,12 @@
     this.genericDependencies = this.genericDependencies || [];
     
     if (config) {
-      this.log.FINE("instance...");
+      this.log.FINE("instance...");/*L*/
       if (!config.name) {
         var n = "Tag-" + nameCounter++;
         this.config.name = n;
-        this.log.WARN("Name was not specified for tag. Assigning auto: " + n);
+        this.log.WARN(/*L*/
+                "Name was not specified for tag. Assigning auto: " + n);/*L*/
       }
       
       this.addState("INITIAL");
@@ -294,8 +296,7 @@
       }
       
       if (config.dependencies) {
-        var deps = config.dependencies.concat(this.getDependencies());
-        this.setDependencies(deps);
+        this.dependencies = config.dependencies.concat(this.dependencies);
       }
       
       if (config.PACKAGE) {
@@ -322,6 +323,16 @@
    */
   GenericLoader.prototype.LOADING_TIMEOUT = 5 * 1000;
   
+  GenericLoader.prototype.getHtml = function () {
+    if (this.config.html) {
+      return this.config.html;
+    }
+    if (this.htmlContent) {
+      return Utils.trim(this.htmlContent);
+    }
+    return null;
+  };
+  
   /**
    * Private method delegating script execution.
    * When running process executes _scriptExecute, in order:
@@ -339,20 +350,21 @@
    * @protected
    */
   GenericLoader.prototype._executeScript = function () {
-    this.log.INFO("executing main script...");
+    this.log.INFO("executing main script...");/*L*/
     var success = false;
     
     try {
       this.script();
       success = true;
-      this.log.INFO("executed without errors.");
+      this.log.INFO("executed without errors.");/*L*/
     } catch (ex) {
       this.addState("EXECUTED_WITH_ERRORS");
       this.executedWithErrors = new Date().valueOf();
-      this.log.ERROR("Error while executing: " + ex);
-      this.log.ERROR("There was an error while executing instance of tag: " +
-              this.CLASS_NAME + " from package: " + this.PACKAGE_NAME);//L
-      this.log.ERROR(ex, true);
+      this.log.ERROR("Error while executing: " + ex);/*L*/
+      this.log.ERROR(/*L*/
+        "There was an error while executing instance of tag: " +/*L*/
+        this.CLASS_NAME + " from package: " + this.PACKAGE_NAME);/*L*/
+      this.log.ERROR(ex, true);/*L*/
       this._onError(ex);
     } finally {
       this._onExecute(success);
@@ -376,7 +388,7 @@
    */
   GenericLoader.prototype._getTimeout = function (chain) {
     var tout = +this.config.timeout;
-    var deps = this.getDependencies();
+    var deps = this.dependencies;
     if (tout !== -1 && deps.length > 0) {
       var max = 0;
       chain = chain || [];
@@ -428,8 +440,8 @@
     try {
       var loc = TagsUtils.getHTMLLocationForTag(this);
       if (loc && this._securedWrites && this._securedWrites.length > 0) {
-        this.log.FINE("flushing document.write proxy array");
-        this.log.FINE("flushing: " + this._securedWrites.join("\n"));
+        this.log.FINE("flushing document.write proxy array");/*L*/
+        this.log.FINE("flushing: " + this._securedWrites.join("\n"));/*L*/
         var append = (this.config.locationPlaceHolder === "END");
         ret = TagsUtils.flushDocWritesArray(
             this._securedWrites,
@@ -444,7 +456,7 @@
         }
       }
     } catch (ex) {
-      this.log.ERROR("Unexpected exception during flushing! " + ex);
+      this.log.ERROR("Unexpected exception during flushing! " + ex);/*L*/
       this._onError(ex);
     }
     
@@ -485,7 +497,7 @@
    * the tag. See also see `before` and `after` functions
    */
   GenericLoader.prototype.script = function () {
-    this.log.INFO("Script run.");
+    this.log.INFO("Script run.");/*L*/
   };
   
   /**
@@ -494,12 +506,12 @@
    * This method will be run only after reset.
    */
   GenericLoader.prototype.before = function () {
-    this.log.FINE("running before handler...");
+    this.log.FINE("running before handler...");/*L*/
     this.beforeRun = new Date().valueOf();
     try { 
       this.onBefore();
     } catch (ex) {
-      this.log.ERROR("onBefore error: " + ex);
+      this.log.ERROR("onBefore error: " + ex);/*L*/
       this._onError(ex);
     }
   };
@@ -523,12 +535,12 @@
    * @param success {Boolean} If the script executed without errors
    */
   GenericLoader.prototype.after = function (success) {
-    this.log.FINE("running after...");
+    this.log.FINE("running after...");/*L*/
     this.afterRun =  new Date().valueOf();
     try { 
       this.onAfter(success);
     } catch (ex) {
-      this.log.ERROR("onAfter error: " + ex);
+      this.log.ERROR("onAfter error: " + ex);/*L*/
       this._onError(ex);
     }
   };
@@ -551,7 +563,7 @@
       this._runOnceTriggered = new Date().valueOf();
       this.run();
     } else {
-      this.log.FINEST("runOnce has been already executed.");
+      this.log.FINEST("runOnce has been already executed.");/*L*/
     }
   };
   
@@ -588,12 +600,12 @@
     }
     
     if (this.isRunning) {
-      this.log.FINE("loader is currently in progress, try again later.");
+      this.log.FINE("loader is currently in progress, try again later.");/*L*/
       return false;
     }
     
     if (this.lastRun) {
-      this.log.FINE("Running again. Run count: " + (this.runCounter + 1));
+      this.log.FINE("Running again. Run count: " + (this.runCounter + 1));/*L*/
       this.reset();
     }
     
@@ -601,8 +613,8 @@
     this.runCounter++;
     this._ignoreDeps = !!this.ignoreDependencies;
     if (!this._ignoreDeps && !this.dependenciesLoaded()) {
-      this.log.FINE("Dependencies (other loaders) not ready. " +
-              " Attaching handlers.");//L
+      this.log.FINE(/*L*/
+        "Dependencies (other loaders) not ready. Attaching handlers.");/*L*/
       // as all deps are not loaded - there will be at least one that will call
       // success event where this parent will listen. Cannot continue otherwise.
       this._attachDepsEventsToContinue();
@@ -637,21 +649,21 @@
    * @returns {undefined}
    */
   GenericLoader.prototype._attachDepsEventsToContinue = function () {
-    this.log.FINE("Attaching success events to dependencies...");
+    this.log.FINE("Attaching success events to dependencies...");/*L*/
     //important lock and state indicator!
     this.awaitingDependencies = new Date().valueOf();
     
-    var deps = this.getDependencies();
+    var deps = this.dependencies;
     for (var i = 0; i < deps.length; i++) {
       try {
         deps[i].events.on("success", this._depLoadedHandler);
       } catch (ex) {
-        this.log.WARN("Cannot set event for dependency -> ", deps[i]);
-        this.log.WARN("Exception: ", ex);
+        this.log.WARN("Cannot set event for dependency -> ", deps[i]);/*L*/
+        this.log.WARN("Exception: ", ex);/*L*/
       }
     }
     
-    this.log.FINE("Attached " + deps.length + " handlers.");
+    this.log.FINE("Attached " + deps.length + " handlers.");/*L*/
   };
   
   /**
@@ -660,7 +672,7 @@
    * @returns {Boolean}
    */
   GenericLoader.prototype.dependenciesLoaded = function () {
-    var deps = this.getDependencies();
+    var deps = this.dependencies;
     for (var i = 0; i < deps.length; i++) {
       if (deps[i] !== this) {
         var executed = (+deps[i].scriptExecuted) > 0;
@@ -683,11 +695,11 @@
    */
   GenericLoader.prototype._handleCancel = function () {
     this.addState("CANCELLED");
-    this.log.INFO("loader is cancelled.");
+    this.log.INFO("loader is cancelled.");/*L*/
     try {
       this.onCancel();
     } catch (ex) {
-      this.log.ERROR("Exception at onCancel" + ex);
+      this.log.ERROR("Exception at onCancel" + ex);/*L*/
       this._onError(ex);
     }
   };
@@ -709,8 +721,8 @@
       //dependencies ready
       this.execute();      
     } else if (this.loadingDependenciesFailed) {
-      this.log.INFO("script execution failed before running: " +
-        "dependencies failed to load."); //L
+      this.log.INFO("script execution failed before running: " +/*L*/
+        "dependencies failed to load.");/*L*/
       this._markFailure();
       this._markFinished();
     } else {
@@ -737,7 +749,7 @@
    * block.
    */
   GenericLoader.prototype.execute = function () {
-    this.log.FINE("entering execute...");
+    this.log.FINE("entering execute...");/*L*/
     this._triggerExecution();
   };
   
@@ -771,13 +783,13 @@
           cancel = this.before();
         } catch (ex) {
           //decision changed: failured before callback must stop execution.
-          this.log.ERROR("`before` thrown an exception");
-          this.log.ERROR(ex, true);
+          this.log.ERROR("`before` thrown an exception");/*L*/
+          this.log.ERROR(ex, true);/*L*/
           this._onError(ex);
         }
 
         if (cancel) {
-          this.log.INFO("before calback cancelled execution.");
+          this.log.INFO("before calback cancelled execution.");/*L*/
           this._markFailure();
           this._markFinished();
           return;
@@ -806,7 +818,7 @@
         this._markFailure();
       } else {
         //no failures, run!
-        this.log.FINE("Executing...");
+        this.log.FINE("Executing...");/*L*/
         this.scriptExecuted = new Date().valueOf();
         this.addState("EXECUTED");
         this._executeScript();
@@ -833,14 +845,14 @@
       }
       this._flushDocWrites();
       this._markFinished();
-      this.log.INFO("* stopped [" +
-              ((this.scriptExecuted > 0) ? "executed" : "not executed") +//L
-              "] *");//L
+      this.log.INFO("* stopped [" +/*L*/
+              ((this.scriptExecuted > 0) ? "executed" : "not executed") +/*L*/
+              "] *");/*L*/
     }
   };
   
   GenericLoader.prototype._markFailure = function () {
-    this.log.INFO("Script execution failed.");
+    this.log.INFO("Script execution failed.");/*L*/
     this.scriptExecuted = -(new Date().valueOf());
     this.addState("FAILED_TO_EXECUTE");
   };
@@ -905,8 +917,8 @@
       } else if (GenericLoader.LOCK_DOC_WRITE !== this) {
         if (!this._lockedDocWriteInformed) {
           this._lockedDocWriteInformed = new Date().valueOf();
-          this.log.WARN("Tag will wait till document.write be available.");
-          this.log.FINE(GenericLoader.LOCK_DOC_WRITE, true);
+          this.log.WARN("Tag will wait till document.write be available.");/*L*/
+          this.log.FINE(GenericLoader.LOCK_DOC_WRITE, true);/*L*/
         }
         //only case: LOCK_DOC_WRITE lock obtained not by myself - wait then
         return true;
@@ -944,7 +956,7 @@
     if (!this._loadExecutionURLsAndHTMLInformed) {
       //show this message once
       this._loadExecutionURLsAndHTMLInformed = true;
-      this.log.INFO("tag is loaded, trying execution...");
+      this.log.INFO("tag is loaded, trying execution...");/*L*/
     }
 
     //check if url/urls are specified, delay if any
@@ -962,10 +974,10 @@
       if (!this.injectHTMLNotFinished) {
         this._flushDocWrites();
         //check if 1) & 2) is finished.
-        this.log.INFO("url and html awaiting has ended...");
+        this.log.INFO("url and html awaiting has ended...");/*L*/
         if (!this._docWriteNotFlushed) {
           if (this._docWriteFlushed) {
-            this.log.INFO("flushed document.write...");
+            this.log.INFO("flushed document.write...");/*L*/
           }
           return true;
         }
@@ -984,8 +996,9 @@
   GenericLoader.prototype._triggerURLsLoading = function (callback) {
     if (!this._urlLoadTriggered && this.config.url) {
       this._urlLoadTriggered = true;
-      this.log.INFO("tag has url option set to: " + this.config.url);//L
-      this.log.INFO("loading url and delaying execution till link is loaded");
+      this.log.INFO("tag has url option set to: " + this.config.url);/*L*/
+      this.log.INFO(/*L*/
+        "loading url and delaying execution till link is loaded");/*L*/
       this.loadURLs(false, callback);
     }
   };
@@ -996,10 +1009,10 @@
    * It means that after one call, it will have no effect.
    */
   GenericLoader.prototype._triggerHTMLInjection = function () {
-    if (!this._injectHTMLTriggered && this.config.html) {
+    if (!this._injectHTMLTriggered && this.getHtml()) {
       this._injectHTMLTriggered = true;
-      this.log.FINE("tag has html option set to: " + this.config.html);//L
-      this.log.INFO("injecting html and delaying execution till is ready");
+      this.log.FINE("tag has html option set to: " + this.getHtml());/*L*/
+      this.log.INFO("injecting html and delaying execution till is ready");/*L*/
       this.injectHTML();
     }
   };
@@ -1065,12 +1078,12 @@
    */
   GenericLoader.prototype.addState = function (stateName) {
     if (this.STATE.hasOwnProperty(stateName)) {
-      //this.log.FINEST("Updating state.");
+      //this.log.FINEST("Updating state.");/*L*/
       this.state = (this.state | this.STATE[stateName]);
       try {
         this.onStateChange(stateName);
       } catch (ex) {
-        this.log.ERROR(ex);
+        this.log.ERROR(ex);/*L*/
         this._onError(ex);
       }
     }
@@ -1173,7 +1186,7 @@
           if (this.allDependenciesLoaded(true)) {//give last chance for defaults
             this._markLoadedSuccesfuly();
           } else {
-            this.log.WARN("timed out while loading dependencies.");
+            this.log.WARN("timed out while loading dependencies.");/*L*/
             this.addState("TIMED_OUT");
             this.loadingDependenciesFailed = new Date().valueOf();
             this._triggerOnLoadTimeout();
@@ -1198,13 +1211,13 @@
       
       Timed.maxFrequent(function () {
         if (fullBodyNeededAndUnLoaded) {
-          this.log.FINE("Full body needed. Waiting for full body.");
+          this.log.FINE("Full body needed. Waiting for full body.");/*L*/
         }
         if (interactiveBodyNeededButNotReady) {
-          this.log.FINE("Interactive body needed. Waiting for body.");
+          this.log.FINE("Interactive body needed. Waiting for body.");/*L*/
         }
-        this.log.FINE("Waiting for dependencies, counting... " +
-                this._lockObject.count++ + " (" + steps + ")");//L
+        this.log.FINE("Waiting for dependencies, counting... " +/*L*/
+                this._lockObject.count++ + " (" + steps + ")");/*L*/
       }.bind(this), freq, this._lockObject);
       /*~log*/
     } else {
@@ -1242,7 +1255,7 @@
       failures.push("injection location");
     }
     var i;
-    var deps = this.getDependencies();
+    var deps = this.dependencies;
     for (i = 0; i < deps.length; i++) {
       if (deps[i] !== this) {
         var executed = (+deps[i].scriptExecuted) > 0;
@@ -1266,9 +1279,10 @@
       Timed.maxFrequent(function () {
           var awaitingList = failures.join(", ");
           if (awaitingList) {
-            this.log.FINE("Dependencies check: Waiting for: " + awaitingList);
+            this.log.FINE(/*L*/
+              "Dependencies check: Waiting for: " + awaitingList);/*L*/
           } else {
-            this.log.FINE("Dependencies check: No basic dependencies.");
+            this.log.FINE("Dependencies check: No basic dependencies.");/*L*/
           }
         }.bind(this), 5000, this._lockObjectDepsLoaded);
       /*~log*/
@@ -1316,7 +1330,7 @@
     }
     
     if (this._isBodyLocationSet()) {
-        return true;
+      return true;
     } else {
       var atHead = (this.config.locationObject === "HEAD");
       return atHead && (this.config.locationPlaceHolder === "END");
@@ -1408,29 +1422,68 @@
   /**
    * Function used as a worker for processing loaders's other dependant tags.
    * It is a looping trigger to call "load" on dependencies.
-   * `this.getDependencies()` array containes other dependant loaders.
+   * `this.dependencies` array containes other dependant loaders.
    */
   GenericLoader.prototype.loadDependencies = function () {
     this._loadDependencies();
   };
   
   /**
-   * Dependant loaders array getter.
+   * Client dependencies lazy loader.
+   * @param {type} array
+   * @param {type} ns
+   * @returns {undefined|Array}
+   */
+  GenericLoader.prototype.addClientDependenciesList = function (array, ns) {
+    return this.addDependenciesList(array, qubit.Define.clientSpaceClasspath());
+  };
+
+  
+  /**
+   * Dependencies p[arser. It accepts an array of dependencies.
+   * Dependency can be refeered by classpath string or direct reference.
+   * @param {type} array Array of tag references or
    * @returns {Array} dependencies array, instances of loaders this loader
    *                  is dependant on. The array can be used to add more
    *                  dependencies.
    */
-  GenericLoader.prototype.getDependencies = function () {
-    return this.dependencies;
-  };
-  
-  /**
-   * Setter for dependant loaders.
-   * @param {Array} deps dependencies array. Array of 
-   *                 qubit.opentag.GenericLoader instances.
-   */
-  GenericLoader.prototype.setDependencies = function (deps) {
-    this.dependencies = deps;
+  GenericLoader.prototype.addDependenciesList = function (array, ns) {
+    if (!array || array.length === 0) {
+      return;
+    }
+    if (!this.failedDependenciesToParse) {
+      this.failedDependenciesToParse = [];
+    }
+    var dependencies = this.dependencies;
+    for (var i = 0; i < array.length; i++) {
+      var item = array[i];
+      var bad = false;
+      if (item instanceof GenericLoader) {
+        dependencies.push(item);
+      } else if (typeof(item) === "string") {
+        var original = item;
+        if (ns) {
+          item = ns + "." + item;
+        }
+        var obj = Utils.getObjectUsingPath(item);
+        if (obj) {
+          if (obj instanceof GenericLoader) {
+            dependencies.push(obj);
+          } else {
+            bad = true;
+          }
+        } else {
+          this.failedDependenciesToParse.push(original);
+        }
+      } else {
+        bad = true;
+      }
+      if (bad) {
+        this.log.WARN("Bad object type passed to deps, ignoring.");/*L*/
+        this.badDepsObjects = this.badDepsObjects || [];
+        Utils.addToArrayIfNotExist(this.badDepsObjects, item);
+      }
+    }
   };
   
   /**
@@ -1440,7 +1493,7 @@
    */
   GenericLoader.prototype._loadDependencies = function (chain) {
     chain = chain || [];
-    var deps = this.getDependencies();
+    var deps = this.dependencies;
     var present = Utils.indexInArray(chain, this) !== -1;
     if (!present) {
       chain[chain.length] = this;
@@ -1535,14 +1588,14 @@
       try {
         this.onBeforeLoad();
       } catch (ex) {
-        this.log.ERROR("onBeforeLoad error: " + ex);
+        this.log.ERROR("onBeforeLoad error: " + ex);/*L*/
         this._onError(ex);
       }
     }
 
     //by default dependencies (other tags) are not loaded automatically
     this.addState("LOADING_DEPENDENCIES");
-    this.log.INFO("Load started.");
+    this.log.INFO("Load started.");/*L*/
     
     try {
       /**
@@ -1553,8 +1606,8 @@
         this.loadDependencies();
       }
     } catch (ex) {
-      this.log.ERROR("loadDependencies: unexpected exception occured: \n" +
-              ex + "\ntrying to finish... ");//L
+      this.log.ERROR("loadDependencies: unexpected exception occured: \n" +/*L*/
+              ex + "\ntrying to finish... ");/*L*/
       throw ex;
     }
     
@@ -1579,7 +1632,7 @@
     if (this.urlsLoaded === urls.length) {
       this.loadURLsNotFinished = false;
       if (success && this.urlsFailed === 0) {
-        this.log.INFO("succesfully loaded " + this.urlsLoaded + " urls.");
+        this.log.INFO("succesfully loaded " + this.urlsLoaded + " urls.");/*L*/
         this.addState("LOADED_URL");
         this.urlsLoaded = new Date().valueOf();
         try {
@@ -1587,14 +1640,14 @@
             callback(true);
           }
         } catch (ex) {
-          this.log.ERROR("Callback error:" + ex);
+          this.log.ERROR("Callback error:" + ex);/*L*/
           this._onError(ex);
         } finally {
           this.onScriptsLoadSuccess();
         }
       } else {
         var message = "error loading urls. Failed " + this.urlsFailed;
-        this.log.ERROR(message);
+        this.log.ERROR(message);/*L*/
         this._onError(message);
         this.addState("FAILED_TO_LOAD_URL");
         this.urlsLoaded = -new Date().valueOf();
@@ -1604,7 +1657,7 @@
             callback(false);
           }
         } catch (ex) {
-          this.log.ERROR("Callback error:" + ex);
+          this.log.ERROR("Callback error:" + ex);/*L*/
           this._onError(ex);
         } finally {
           this.onScriptLoadError(message);
@@ -1625,7 +1678,7 @@
     var urls = urlz || this.config.url;    
     
     this.addState("LOADING_URL");
-    this.log.FINE("loading URL(s) ...");
+    this.log.FINE("loading URL(s) ...");/*L*/
     
     try {
       if (urls && !(urls instanceof Array)) {
@@ -1634,15 +1687,15 @@
       
       for (var i = 0; i < urls.length; i++) {
         this.loadURLsNotFinished = true;
-        this.log.FINE("loading URL: " + urls[i] + " ...");
         var url = urls[i];
         url = this.prepareURL(url);
+        this.log.FINE("loading URL: " + url + " ...");/*L*/
         this.loadURL(url, function (success) {
           this._singleUrlLoadHandler(success, urls, callback);
         }.bind(this));
       }
     } catch (ex) {
-      this.log.ERROR("loadURLs thrown unexpected exception! : " + ex);
+      this.log.ERROR("loadURLs thrown unexpected exception! : " + ex);/*L*/
       this.loadURLsNotFinished = false;
       this.addState("UNEXPECTED_FAIL");
       this.unexpectedFail = new Date().valueOf();
@@ -1691,24 +1744,24 @@
     this.addState("LOADING_URL");
     TagsUtils.loadScript({
       onsuccess: function () {
-        this.log.FINE("succesfully loaded " + passedUrl);
+        this.log.FINE("succesfully loaded " + passedUrl);/*L*/
         try {
           if (callback) {
             callback(true);
           }
         } catch (ex) {
-          this.log.ERROR("error at callback for " + passedUrl + ":" + ex);
+          this.log.ERROR("error at callback for " + passedUrl + ":" + ex);/*L*/
         }
       }.bind(this),
       onerror: function () {
-        this.log.ERROR("error loading " + passedUrl);
+        this.log.ERROR("error loading " + passedUrl);/*L*/
         try {
           if (callback) {
             callback(false);
           }
         } catch (ex) {
-          this.log.ERROR("error at callback for error at " +
-                  passedUrl + ":" + ex);//L
+          this.log.ERROR("error at callback for error at " +/*L*/
+                  passedUrl + ":" + ex);/*L*/
         }
       }.bind(this),
       url: passedUrl,
@@ -1723,7 +1776,7 @@
    * Reset will keep logging information.
    */
   GenericLoader.prototype.reset = function () {
-    this.log.FINE("resetting.");
+    this.log.FINE("resetting.");/*L*/
     var u;
     this._injectHTMLTriggered = u;
     this._loadExecutionURLsAndHTMLInformed = u;
@@ -1798,7 +1851,7 @@
     var tryWriteIfNoLocation = !this.docWriteAsksToWaitForBody();
     // tryWriteIfNoLocation set to true will cause immediate document.write
     // call if location was not found!
-    var html = this.prepareHTML(this.config.html);
+    var html = this.prepareHTML(this.getHtml());
     if (html) {
       TagHelper.injectHTMLForLoader(this, callback, tryWriteIfNoLocation, html);
     }

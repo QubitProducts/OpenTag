@@ -1,5 +1,5 @@
 /*UVListener package*/
-//:include html/Json2.js
+//:import html.Json2
 
 (function () {
   function trim(text) {

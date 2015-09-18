@@ -1,6 +1,6 @@
 /*EXCLUDE: SESSION*/
-//:include cookie/cookie.js
-//:include qubit/Cookie.js
+//:import cookie.cookie
+//:import qubit.Cookie
 
 q.cookie.SimpleSessionCounter = {};
 //Qubit Session Tracker

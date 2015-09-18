@@ -1,6 +1,6 @@
-//:include html/html.js
-//:include html/UVCommonValues.js
-//:include html/Json2.js
+//:import html.html
+//:import html.UVCommonValues
+//:import html.Json2
 
 /*jslint evil: true*/
 /*global window, console, q */

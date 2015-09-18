@@ -1,5 +1,5 @@
-//:include qubit/Define.js
-//:include qubit/compression/LZW.js
+//:import qubit.Define
+//:import qubit.compression.LZW
 
 (function () {
   //mex is manual "hex"

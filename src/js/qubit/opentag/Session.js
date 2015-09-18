@@ -1,11 +1,11 @@
 /*EXCLUDE: SESSION*/
-//:include cookie/SimpleSessionCounter.js
-//:include html/Json2.js
-//:include qubit/Define.js
-//:include qubit/opentag/Utils.js
-//:include qubit/opentag/compression/CookieCompressor.js
-//:include qubit/opentag/Log.js
-//:include qubit/Cookie.js
+//:import cookie.SimpleSessionCounter
+//:import html.Json2
+//:import qubit.Define
+//:import qubit.opentag.Utils
+//:import qubit.opentag.compression.CookieCompressor
+//:import qubit.opentag.Log
+//:import qubit.Cookie
 
 (function () {
 
@@ -45,14 +45,15 @@
    * @param {Object} config session configuration object
    * @returns {Object} session object.
    */
-  Session.setupSession = function (config) {
+  Session.setupSession = function (container) {
+    var config = container.config;
     var session, i, cookie, cookieText, cookieName, now;
     session = {};
     session.sessionCount = q.cookie.SimpleSessionCounter
             .update(config.cookieDomain);
     
-    cookieName = "qtag_" + config.containerId;
-    var xCookieName = "x_qtag_" + config.containerId;
+    cookieName = "qtag_" + container.getContainerId();
+    var xCookieName = "x_qtag_" + container.getContainerId();
     
     // compat for non compressed cookie, historical compability, remove this
     // code after 15th of Sep 2015
@@ -177,12 +178,12 @@
     session.getCookie = function (name, compressed) {
       var res = Cookie.get(name, true); //get encoded
       if (res && (compressed || name.indexOf("x_") === 0)) {
-        log.FINE("getCookie() : Comressed cookie accessed:\n" +
-                name + "=" + res);//L
+        log.FINE("getCookie() : Comressed cookie accessed:\n" +/*L*/
+                name + "=" + res);/*L*/
         try {
           res = compressor.decompress(res);
         } catch (ex) {
-          log.ERROR("Cookie failed to decompress: " + ex);
+          log.ERROR("Cookie failed to decompress: " + ex);/*L*/
         }
       } else {
         //apply decoding

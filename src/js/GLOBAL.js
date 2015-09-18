@@ -1,4 +1,4 @@
-//:include qubit/compat/Function.js
+//:import qubit.compat.Function
 
 //PKG_ROOT is the default packaging root.
 var PKG_ROOT = {__anonymous__: true};
@@ -18,7 +18,7 @@ if (!PKG_ROOT.qubit) {
   PKG_ROOT.qubit = qubit;
 }
 
-qubit.VERSION = "1.1.10";
+qubit.VERSION = "3.0.0";
 
 try {
   module.exports = PKG_ROOT;

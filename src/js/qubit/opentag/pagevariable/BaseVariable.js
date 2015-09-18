@@ -1,5 +1,5 @@
-//:include qubit/opentag/Utils.js
-//:include qubit/Define.js
+//:import qubit.opentag.Utils
+//:import qubit.Define
 
 /*
  * TagSDK, a tag development platform
@@ -70,8 +70,8 @@
       
       var ret = BaseVariable.register(this);
       if (ret && ret !== this) {
-        ret.log.FINEST("Variable config already registered.");
-        ret.log.FINEST("Returning existing one.");
+        ret.log.FINEST("Variable config already registered.");/*L*/
+        ret.log.FINEST("Returning existing one.");/*L*/
       }
       return ret;
       //return this or an existing configuration
@@ -95,8 +95,7 @@
     if (variable instanceof BaseVariable) {
       for (var i = 0; i < BaseVariable.pageVariables.length; i++) {
         var regVar = BaseVariable.pageVariables[i];
-        if ((variable.constructor === regVar.constructor) &&
-                (propertiesMatch(regVar.config, variable.config))) {
+        if (variable === regVar) {
           return regVar;//exit
         }
       }

@@ -1,6 +1,6 @@
-//:include qubit/Define.js
-//:include qubit/opentag/Utils.js
-//:include qubit/opentag/LibraryTag.js
+//:import qubit.Define
+//:import qubit.opentag.Utils
+//:import qubit.opentag.LibraryTag
 
 /*
  * TagSDK, a tag development platform
@@ -45,13 +45,12 @@
       html: "",
       locationPlaceHolder: "NOT_END",
       locationObject: "BODY",
-      prePostWindowScope: true,
       async: true
     };
     
     Utils.setIfUnset(config, defaults);
     
-    CustomTag.superclass.call(this, config);
+    CustomTag.SUPER.call(this, config);
   }
   
   qubit.Define.clazz(

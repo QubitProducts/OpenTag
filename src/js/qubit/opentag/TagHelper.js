@@ -5,15 +5,15 @@
  * @author Piotr (Peter) Fronc <peter.fronc@qubitproducts.com>
  */
 
-//:include qubit/Define.js
-//:include qubit/opentag/Utils.js
-//:include qubit/opentag/Timed.js
-//:include qubit/opentag/TagsUtils.js
-//:include qubit/opentag/pagevariable/BaseVariable.js
-//:include qubit/opentag/pagevariable/Expression.js
-//:include qubit/opentag/pagevariable/DOMText.js
-//:include qubit/opentag/pagevariable/Cookie.js
-//:include qubit/opentag/pagevariable/URLQuery.js
+//:import qubit.Define
+//:import qubit.opentag.Utils
+//:import qubit.opentag.Timed
+//:import qubit.opentag.TagsUtils
+//:import qubit.opentag.pagevariable.BaseVariable
+//:import qubit.opentag.pagevariable.Expression
+//:import qubit.opentag.pagevariable.DOMText
+//:import qubit.opentag.pagevariable.Cookie
+//:import qubit.opentag.pagevariable.URLQuery
 
 (function () {
   var Utils = qubit.opentag.Utils;
@@ -50,28 +50,27 @@
    */
   TagHelper.injectHTMLForLoader = 
           function (tag, callback, tryWrite, altHtml) {
-    var config = tag.config;
-    var html = (altHtml !== undefined) ? altHtml : config.html;
+    var html = (altHtml !== undefined) ? altHtml : tag.getHtml();
 
     if (html) {
-      var append = (config.locationPlaceHolder === "END");
+      var append = (tag.config.locationPlaceHolder === "END");
       var location = TagsUtils.getHTMLLocationForTag(tag);
 
-      tag.log.FINE("injecting html into page:");
-      tag.log.FINE(html);
+      tag.log.FINE("injecting html into page:");/*L*/
+      tag.log.FINE(html);/*L*/
       tag.injectHTMLNotFinished = true;
       
       try {
         if (location) {
           TagsUtils.injectHTML(location, append, html, function () {
-            tag.log.FINE("finished html injection.");
+            tag.log.FINE("finished html injection.");/*L*/
             tag.injectHTMLNotFinished = false;
             if (callback) {
               try {
                 callback();
               } catch (e) {
-                tag.log.ERROR("error while trying to run callback after" +
-                        " html injection: " + e);//L
+                tag.log.ERROR("error while trying to run callback after" +/*L*/
+                        " html injection: " + e);/*L*/
               }
             }
           }.bind(tag));
@@ -80,16 +79,16 @@
           tag.injectHTMLNotFinished = false;
         } else {
           tag.injectHTMLFailed = new Date().valueOf();
-          tag.log.ERROR("location was not found or/and html is " + 
-                  "told to not to write at runtime or" + //L
-                  " document is already loaded. Please check tag's " +//L
-                  "configuration. Injection cancelled.");//L
+          tag.log.ERROR("location was not found or/and html is " + /*L*/
+                  "told to not to write at runtime or" + /*L*/
+                  " document is already loaded. Please check tag's " +/*L*/
+                  "configuration. Injection cancelled.");/*L*/
         }
       } catch (ex) {
         tag.injectHTMLNotFinished = false;
         // @TODO do we fail tags when exceptions are thrown?
         tag.injectHTMLFailed = new Date().valueOf();
-        tag.log.ERROR("error while trying to inject html: " + ex);
+        tag.log.ERROR("error while trying to inject html: " + ex);/*L*/
       }
     }
   };
@@ -168,7 +167,7 @@
         var name = pageVar.config.name ? pageVar.config.name : "[unnamed]";
 
         Timed.maxFrequent(function () {
-          log.FINEST("Variable '" + name + "' exists? " + exist);
+          log.FINEST("Variable '" + name + "' exists? " + exist);/*L*/
         }, 5000, _lock_obj);
         /*~log*/
         
@@ -195,7 +194,7 @@
     }
 
     Timed.maxFrequent(function () {
-      log.FINEST("Checking page variables, variables are ready: " + allReady);
+      log.FINEST("Checking page variables, variables are ready: " + allReady);/*L*/
       if (!allReady) {
         log.FINE("Variables not ready, waiting...");
       } else {
@@ -268,12 +267,21 @@
    *  
    *  The `cfg` config is passed to paga variable constructor as object config.
    * 
+   *  `cfg` can be also a string specifying classpath to variable instance.
    * @returns {qubit.opentag.pagevariable.BaseVariable}
    */
   TagHelper.initPageVariable = function (cfg) {
     if (!cfg || cfg instanceof BaseVariable) {
       return cfg;
     }
+    
+    if (typeof(cfg) === "string") {
+      var tmp = Utils.getObjectUsingPath(cfg);
+      if (tmp && tmp instanceof BaseVariable) {
+        return tmp;
+      }
+    }
+    
     switch (cfg.type) {
     case JS_VALUE:
       return new Expression(cfg);

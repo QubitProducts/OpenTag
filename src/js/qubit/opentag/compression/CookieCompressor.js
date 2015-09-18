@@ -1,8 +1,8 @@
-//:include qubit/Define.js
-//:include qubit/Cookie.js
-//:include qubit/compression/Compressor.js
-//:include qubit/opentag/Log.js
-//:include qubit/opentag/compression/Encoder.js
+//:import qubit.Define
+//:import qubit.Cookie
+//:import qubit.compression.Compressor
+//:import qubit.opentag.Log
+//:import qubit.opentag.compression.Encoder
 
 (function () {
   var Define = qubit.Define;
@@ -27,7 +27,7 @@
     this.binSupported = binSupported;
     
     if (config) {
-      log.FINEST("Created compressor instance.");
+      log.FINEST("Created compressor instance.");/*L*/
       /**
        * @property {qubit.compression.Compressor} compressor 
        * instance used for compression and decompression.
@@ -69,7 +69,7 @@
     if (typeof(string) !== "string" || string === "") {
       return string;
     }
-    log.FINEST("Compressing...");
+    log.FINEST("Compressing...");/*L*/
     var encoded = this.encoder.encode(string);
     
     var binOut;
@@ -83,7 +83,7 @@
       
       if (o && o !== binOut) {
         binOut = null;
-        log.FINEST("Binary cookie saving trial failed.");
+        log.FINEST("Binary cookie saving trial failed.");/*L*/
       }
     }
     
@@ -96,10 +96,11 @@
     }
     
     if (binOut && binOut.length < ansiOut.length) {
-      log.FINEST("Binary compression ratio:" + (binOut.length / string.length));
+      log.FINEST(/*L*/
+        "Binary compression ratio:" + (binOut.length / string.length));/*L*/
       return binOut;
     } else {
-      log.FINEST("Compression ratio: " + (ansiOut.length / string.length));
+      log.FINEST("Compression ratio: " + (ansiOut.length / string.length));/*L*/
       return ansiOut;
     }
   };
@@ -118,7 +119,7 @@
     if (string.charAt(0) === "\"") {
       string = string.substring(1, string.length - 1);
     }
-    log.FINEST("Decompressing...");
+    log.FINEST("Decompressing...");/*L*/
     var code = string.charAt(0);
     string = string.substring(1);
     
