@@ -250,7 +250,7 @@ QTag.getLoaders = function (urlFilters, scriptLoaders, url, categoryFilter) {
     return b.priority - a.priority;
   });
   for (i = 0, ii = matchedFilters.length; i < ii; i += 1) {
-    QTag.updateLoaders(matchedFilters[i], loaderKeysSet);
+    QTag.updateLoaders(matchedFilters[i], loaderKeysSet, scriptLoaders, categoryFilter);
   }
   for (i in loaderKeysSet) {
     if (loaderKeysSet.hasOwnProperty(i)) {
@@ -289,7 +289,7 @@ QTag.doesUrlFilterMatch = function (urlFilter, url) {
 /**
  * Update the loader key set with the given filter
  */
-QTag.updateLoaders = function (urlFilter, loaderKeysSet, categoryFilter) {
+QTag.updateLoaders = function (urlFilter, loaderKeysSet, scriptLoaders, categoryFilter) {
   var i, ii, scriptLoaderKeys = urlFilter.scriptLoaderKeys;
   if (urlFilter.filterType === QTag.FILTER_TYPE_INCLUDE) {
     for (i = 0, ii = scriptLoaderKeys.length; i < ii; i += 1) {
