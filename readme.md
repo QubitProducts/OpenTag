@@ -90,9 +90,9 @@ Tag API collects execution information for better debugging experience.
 
 For more details, guides and API documentation please refer to Qubit pages.
 
-* [Guide Pages](https://opentag2.qubitproducts.com/tagsdk/docs)
-* [API Documentation](https://opentag2.qubitproducts.com/tagsdk/docs/template.html#!/api/qubit.opentag.BaseTag)
-* [Blank page to test API](https://opentag2.qubitproducts.com/tagsdk/) (open console and paste code)
+* [Guide Pages](https://opentag.qubitproducts.com/tagsdk/docs)
+* [API Documentation](https://opentag.qubitproducts.com/tagsdk/docs/template.html#!/api/qubit.opentag.BaseTag)
+* [Blank page to test API](https://opentag.qubitproducts.com/tagsdk/) (open console and paste code)
 
 ## Licensing
 Qubit Opentag is freely available to anyone under LGPL License.
