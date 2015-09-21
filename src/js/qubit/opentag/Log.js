@@ -265,7 +265,7 @@
     }
   };
   
-  var _ssupported = !!Define.global().webkitURL;
+  var _ssupported = !!(Define.global().URL || Define.global().webkitURL);
   /**
    * Use styling by default.
    * @returns {Boolean}
