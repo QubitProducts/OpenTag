@@ -65,12 +65,7 @@ java -jar bin/compiler.jar \
   --summary_detail_level 1\
   --warning_level QUIET
 exitOnError
-rm build/tmp.js
 
-
-#merge js
-
-exitOnError
 rm build/tmp.js
 
 echo "Ready."
