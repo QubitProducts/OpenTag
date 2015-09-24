@@ -33,6 +33,14 @@ open to new ideas!
 engineers and become recognized as contributing towards our
 first product.
 
+## Generate the tagsdk
+
+Generate the /build directory :
+
+	sh build.sh
+	
+that will generate those four tagsdk files for production and development use : tagsdk.js, tagsdk-compressed.js, tagsdk-debug.js, tagsdk-debug-compressed.js.
+
 ## Examples and Documentation
 
 
