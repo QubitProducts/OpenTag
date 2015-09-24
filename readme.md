@@ -42,7 +42,7 @@ Opentag API follows well known OO JavaScript standards. To create a tag, an inst
 	var aTag = new qubit.opentag.BaseTag({name: "My tag name"});
 ```
 
-(to test this code open [blank Opentag API page](https://opentag2.qubitproducts.com/tagsdk/) and open console)
+(to test this code open [blank Opentag API page](https://opentag.qubitproducts.com/tagsdk/) and open console)
 
 Once tag instance is created, it can be run:
 
@@ -55,7 +55,7 @@ Empty tag, however, does not trigger anything. Let us have a tag that will load 
 ```javascript
 	var aTag = new qubit.opentag.BaseTag({
 		name: "My tag name",
-		url: "http://code.jquery.com/jquery.js"
+		url: "https://code.jquery.com/jquery.js"
 	});
 
 	aTag.script = function() {
@@ -72,7 +72,7 @@ Example above could be run with shorter code:
 ```javascript
 	new qubit.opentag.BaseTag({
 		name: "My tag name",
-		url: "http://code.jquery.com/jquery.js",
+		url: "https://code.jquery.com/jquery.js",
 		script : function() {
 			alert("JQuery is present: " + !!jQuery);
 		}
@@ -90,9 +90,9 @@ Tag API collects execution information for better debugging experience.
 
 For more details, guides and API documentation please refer to Qubit pages.
 
-* [Guide Pages](https://opentag2.qubitproducts.com/tagsdk/docs)
-* [API Documentation](https://opentag2.qubitproducts.com/tagsdk/docs/template.html#!/api/qubit.opentag.BaseTag)
-* [Blank page to test API](https://opentag2.qubitproducts.com/tagsdk/) (open console and paste code)
+* [Guide Pages](https://opentag.qubitproducts.com/tagsdk/docs)
+* [API Documentation](https://opentag.qubitproducts.com/tagsdk/docs/template.html#!/api/qubit.opentag.BaseTag)
+* [Blank page to test API](https://opentag.qubitproducts.com/tagsdk/) (open console and paste code)
 
 ## Licensing
 Qubit Opentag is freely available to anyone under LGPL License.
