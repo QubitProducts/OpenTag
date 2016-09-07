@@ -2,7 +2,7 @@
 /* exclude from merge */
 /*global escape, unescape*/
 /*
-//MOVED TO QUBIT PACKAGE. To be deleted. Excluded.
+// MOVED TO QUBIT PACKAGE. To be deleted. Excluded.
 q.html.simplecookie = {};
 
 q.html.simplecookie.readCookie = function (name, noescp) {
@@ -11,7 +11,7 @@ q.html.simplecookie.readCookie = function (name, noescp) {
   cookies = document.cookie.split(';');
   r = /^\s+|\s+$/g;
   for (i = 0, ii = cookies.length; i < ii; i += 1) {
-    cookie = cookies[i].replace(r, '');//trim
+    cookie = cookies[i].replace(r, '');// trim
     if (cookie.indexOf(nameSearchString) === 0) {
       if (noescp) {
         value = cookie.substring(nameSearchString.length);

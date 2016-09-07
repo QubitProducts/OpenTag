@@ -5,7 +5,7 @@
 //:import qubit.opentag.filter.BaseFilter
 
 (function () {
-  var log = new qubit.opentag.Log("Tags -> ");
+  var log = new qubit.opentag.Log("Tags -> ");/*L*/
   var Utils = qubit.opentag.Utils;
   var BaseFilter = qubit.opentag.filter.BaseFilter;
 
@@ -104,11 +104,14 @@
    * 
    * @returns Object
    */
-  Tags.resetAllTags = function () {
+  Tags.resetAllTags = function (skipFilters) {
     log.WARN("reseting all tags!");/*L*/
     var tags = Tags.getTags();
     for (var i = 0; i < tags.length; i++) {
       tags[i].reset();
+      if (!skipFilters) {
+        tags[i].resetFilters();
+      }
     }
   };
 
@@ -152,11 +155,15 @@
   /**
    * @static
    * Reset all tags.
+   * @param {Boolean} skipFilters if should reset with filters.
    */
-  Tags.resetAll = function () {
+  Tags.resetAll = function (skipFilters) {
     var tags = Tags.getTags();
     for (var i = 0; i < tags.length; i++) {
       tags[i].reset();
+      if (!skipFilters) {
+        tags[i].resetFilters();
+      }
     }
   };
 
@@ -274,7 +281,7 @@
       excludes.push(qubit.opentag.CustomTag);
       excludes.push(qubit.opentag.LibraryTag);
     } catch (ex) {
-      //not a package dependency
+      // not a package dependency
       log.FINEST("Warning:Missing known libraries: CustomTag, LibraryTag");/*L*/
     }
     
@@ -314,7 +321,7 @@
       excludes.push(qubit.opentag.CustomTag);
       excludes.push(qubit.opentag.LibraryTag);
     } catch (ex) {
-      //not a package dependency
+      // not a package dependency
       log.FINEST("Warning:Missing known libraries: CustomTag, LibraryTag");/*L*/
     }
     ret = Tags.findAllInstances(pckg, BaseTag, excludes, maxDeep);
@@ -362,9 +369,9 @@
           log.FINE("found [" + trackPath + "]:" + /*L*/
                   (obj.config ? obj.config.name : propName));/*L*/
           Utils.addToArrayIfNotExist(instances, obj);
-          return true;//dont search in instances objects
+          return true;// dont search in instances objects
         }
-        return false;//get deeper
+        return false;// get deeper
       }.bind(this);
       
       Utils.traverse(pckg, fun, cfg);
@@ -417,11 +424,10 @@
   Tags.findAllFilters = function (pckg, maxDeep) {
     var excludes = [];
     try {
-      excludes.push(qubit.opentag.filter.SessionVariableFilter);
       excludes.push(qubit.opentag.filter.Filter);
       excludes.push(qubit.opentag.filter.URLFilter);
     } catch (ex) {
-      //not a package dependency
+      // not a package dependency
       log.FINE("Warning: Missing known libraries: CustomTag, LibraryTag");/*L*/
     }
     return Tags.findAllInheriting(pckg, BaseFilter, excludes, maxDeep);

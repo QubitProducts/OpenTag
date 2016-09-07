@@ -44,7 +44,7 @@
    * @returns {String} decoded string
    */
   Cookie.decode = function (string) {
-    return unescape(string); //old version compatibility
+    return unescape(string); // old version compatibility
   };
   /**
    * @static

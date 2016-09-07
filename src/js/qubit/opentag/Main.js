@@ -1,3 +1,5 @@
+/* global qubit, GLOBAL, q */
+
 //:import GLOBAL
 //:import qubit.opentag.Log
 //:import qubit.opentag.Utils
@@ -6,7 +8,7 @@
 //:import qubit.Define
 
 (function () {
-  var log = new qubit.opentag.Log("Main -> ");
+  var log = new qubit.opentag.Log("Main -> ");/*L*/
   var Cookie = qubit.Cookie;
   var Utils = qubit.opentag.Utils;
 
@@ -32,19 +34,30 @@
   }
 
   function disabled() {
+    try {
+      var fun = GLOBAL.TAGSDK_MAIN_DISABLED_FUNCTION;
+      if (fun && fun()) {
+        return true;
+      }
+    } catch (ex) {
+      log.ERROR("Buggy GLOBAL.TAGSDK_MAIN_DISABLED_FUNCTION ?\n " + ex); /*L*/
+    }
+    
     if (document.location.href.indexOf("opentag_disabled=true") >= 0) {
       return true;
     }
     return false;
   }
 
-  qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_NONE);
-  qubit.opentag.Log.setCollectLevel(3);
+  qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_NONE);/*L*/
+  qubit.opentag.Log.setCollectLevel(3);/*L*/
 
   /*debug*/
-  qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_INFO);
-  qubit.opentag.Log.setCollectLevel(4);
+  qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_INFO);/*L*/
+  qubit.opentag.Log.setCollectLevel(4);/*L*/
   /*~debug*/
+
+  qubit.opentag.Log.setLevelFromCookie();
 
   /**
    * Default runner method for opentag program. It decides on all aspects of 
@@ -60,13 +73,14 @@
     var selfDebug = false;
     /*debug*/
     selfDebug = true;
+    qubit.DEBUG_MODE = true;
     /*~debug*/
     var debugToolRequested = requestedDebugTool();
     var debugRequested = debugToolRequested || requestedDebugMode();
 
     if (!selfDebug && debugRequested) {
-      if (!qubit.opentag.Log) {
-        //clear existing tagsdk! And only for Log attaching purpose!
+      if (!qubit.DEBUG_MODE) {
+        // clear existing tagsdk! And only for Log attaching purpose!
         GLOBAL.TAGSDK_NS_OVERRIDE = true;
       } else {
         GLOBAL.TAGSDK_NS_OVERRIDE = false;
@@ -74,26 +88,27 @@
       needDebugModeButNotInDebug = true; // STOP, RUNNIG CANCELLED
     }
 
-    if (qubit.opentag.Log) {
+    if (qubit.DEBUG_MODE) {
       GLOBAL.TAGSDK_NS_OVERRIDE = false;
     }
 
     try {
       q.html.UVListener.init(); /*UVListener*/
     } catch (uvInitFalure) {
-      //ignore the failure
+      // ignore the failure
     }
 
-    //triggers entire load
+    // triggers entire load
     Main.runAllContainers(needDebugModeButNotInDebug);
 
     /*debug*/
     if (!needDebugModeButNotInDebug) {
       if (selfDebug && debugToolRequested && !GLOBAL.TAGSDK_DEBUG_TOOL_LOADED) {
-        //load tool
+        // load tool
         var debugTool = document.createElement("script");
         debugTool.src = 
-          "https://s3-eu-west-1.amazonaws.com/opentag-dev/debug-tool/loader.js";
+          "https://s3-eu-west-1.amazonaws.com/" +
+          "opentag-dev/debug-tool/loader-v3.js";
         document.getElementsByTagName("head")[0].appendChild(debugTool);
         GLOBAL.TAGSDK_DEBUG_TOOL_LOADED = true;
       }
@@ -114,7 +129,8 @@
   /**
    * Function running all containers - if debug option  is chosen, opentag will
    * try to reload itself with debugging logs enabled.
-   * @param {Boolean} loadDebug if debug mode scripts must be loaded
+   * @param {Boolean} needDebugModeButNotInDebug 
+   *                                    if debug mode scripts must be loaded
    * @returns {undefined}
    */
   Main.runAllContainers = function (needDebugModeButNotInDebug) {
@@ -149,13 +165,14 @@
           container.configuredInMain = true;
           
           if (needDebugModeButNotInDebug) {
-            Main.loadDebugVersionForContainer(container);
+            container.destroy(true);
+            Main.loadDebugVersion(container);
           } else {
             if (!GLOBAL.QUBIT_OPENTAG_STOP_MAIN_EXECUTION) {
               log.INFO("Running container " + container.CLASSPATH);/*L*/
               container.run();
             } else {
-              (function () {//new scope
+              (function () {// new scope
                 var runner = qubit.opentag.RUN_STOPPED_EXECUTON;
                 qubit.opentag.RUN_STOPPED_EXECUTON = function () {
                   try {
@@ -172,7 +189,7 @@
         }
       }
     } catch (ex) {
-      //silent & reports
+      // silent & reports
     }
   };
 

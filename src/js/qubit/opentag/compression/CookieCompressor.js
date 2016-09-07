@@ -7,12 +7,12 @@
 (function () {
   var Define = qubit.Define;
   var Cookie = qubit.Cookie;
-  var log = new qubit.opentag.Log("CookieCompressor -> ");
+  var log = new qubit.opentag.Log("CookieCompressor -> ");/*L*/
   
-  //var global = Define.global();
+  // var global = Define.global();
   var binSupported = false;
-  //some servers are very bad. must be manually permitted.
-  //!!global.chrome || (global.mozIndexedDB !== undefined);
+  // some servers are very bad. must be manually permitted.
+  // !!global.chrome || (global.mozIndexedDB !== undefined);
   /**
    * @class qubit.opentag.compression.Cookiecompressor
    * 

@@ -1,18 +1,18 @@
 //:import qubit.Define
 //:import html.FileLoader
 //:import qubit.opentag.filter.BaseFilter
-//:import qubit.opentag.filter.SessionVariableFilter
+//:import qubit.opentag.filter.Filter
 //:import html.HtmlInjector
 
 /* global qubit,q */
 
 (function () {
-  var log = new qubit.opentag.Log("TagsUtils -> ");
+  var log = new qubit.opentag.Log("TagsUtils -> ");/*L*/
   var BaseFilter = qubit.opentag.filter.BaseFilter;
   var Utils = qubit.opentag.Utils;
   var HtmlInjector = q.html.HtmlInjector;
   var FileLoader = q.html.fileLoader;
-  var SessionVariableFilter = qubit.opentag.filter.SessionVariableFilter;
+  var Filter = qubit.opentag.filter.Filter;
 
   /**
    * #Tag utility class
@@ -134,7 +134,7 @@
     }
   };
 
-  //this object is used to store native document.write functions
+  // this object is used to store native document.write functions
   var redirectedDocWriteMethods = null;
 
   function saveDocWriteMethods() {
@@ -235,9 +235,9 @@
   var accessorBasePath = TagsUtils.prototype.PACKAGE_NAME + 
           ".TagsUtils._writeScriptURL_callbacks";
   
-  //declare it in global namespace:
+  // declare it in global namespace:
   var accesorBase = {};
-  //make sure its not overriding in case of multiple containers
+  // make sure its not overriding in case of multiple containers
   qubit.Define.namespace(accessorBasePath, accesorBase, GLOBAL, true);
   
   var wsCounter = 0;
@@ -285,11 +285,11 @@
             "' type='text/javascript' " +
             " src='" + url + "'>" +
             // @TODO consider adding async option here
-            //(doies it  really make sense?)
+            // (doies it  really make sense?)
       "</" + scr + "ipt>";
     
     if (redirectedDocWriteMethods) {
-      //js is single threaded
+      // js is single threaded
       unlockDocWriteMethods();
       document.write(value);
       saveDocWriteMethods();
@@ -331,23 +331,34 @@
                                     session,
                                     tag,
                                     runLastSessionFilterIfPresent) {
-    //tag.log.FINEST("Sorting filters...");/*L*/
+    // tag.log.FINEST("Sorting filters...");/*L*/
     // @todo maybe this should be done buch earlier
     filters = filters.sort(function (a, b) {
       try {
-        return b.config.order - a.config.order;
+        var bOrder = b.config.order;
+        var aOrder = a.config.order;
+
+        if (isNaN(-aOrder)) {
+          aOrder = 0;
+        }
+
+        if (isNaN(-bOrder)) {
+          bOrder = 0;
+        }
+      
+        return bOrder - aOrder;
       } catch (nex) {
         return 0;
       }
     });
 
-    var decision = PASS;
+    var decision = PASS; // by default PASS
     if (!filters || (filters.length === 0)) {
       return decision;
     }
 
-    //loop and execute - MATCH
-    var lastFilterResponded = null;
+    // loop and execute - MATCH
+    var lastReadyToProcessFilter = null;
     var disabledFiltersPresent = false;
     var sessionFiltersPresent = false;
     var waitingResponse = 0;
@@ -364,7 +375,7 @@
       if (filter.match()) {
         response = filter.getState();
         // positive response means that filter tells to WAIT for execution
-        // and try in 'response' miliseconds
+        // and try in 'response' miliseconds again
         if (response > 0) {
           if (waitingResponse === 0 || waitingResponse > response) {
             waitingResponse = response;
@@ -375,45 +386,51 @@
           disabledFiltersPresent = true;
         } else if (response === SESSION) {
           sessionFiltersPresent = true;
-          lastFilterResponded = filter;
+          lastReadyToProcessFilter = filter;
           lastSessionFilter = filter;
           sessionFiltersToRun.push(filter);
         } else {
-          lastFilterResponded = filter;
+          lastReadyToProcessFilter = filter;
         }
       } else {
         lastUnmatched = filter;
       }
     }
 
-    var onlyAwaitingFiltersPresent = false;
-    if (lastFilterResponded === null) {
-      onlyAwaitingFiltersPresent = true;
+    var onlyAwaitingOrDisabledFiltersPresent = false;
+    
+    if (lastReadyToProcessFilter === null) {
+      onlyAwaitingOrDisabledFiltersPresent = true;
       if (!disabledFiltersPresent) {
-        //all filters failed
+        // all filters failed
         decision = FAIL;
       } else {
-        //none passed but one of filters was disabled
+        // none passed but one of filters was disabled
         decision = PASS;
       }
     } else {
-      //some filters matched, review state of final matched filter
-      if (lastFilterResponded.config.include) {
-        //last response was to INCLUDE this tag
+      // some filters matched, review state of final matched filter
+      if (lastReadyToProcessFilter.config.include) {
+        // last response was to INCLUDE this tag
         decision = response;
       } else {
-        //last response was to EXCLUDE this tag
+        // last response was to EXCLUDE this tag
         decision = (response === PASS) ? FAIL : PASS;
       }
     }
 
-    //if all passed, 
-    //after standard checks, check if any filter called to wait
+    // if all passed, 
+    // after standard checks, check if any filter called to wait
+    // because of onlyAwaitingOrDisabledFiltersPresent, it excludeds session
+    // filters cases too: "sessionFiltersPresent"
     if (waitingResponse > 0 && 
-            (decision === PASS || onlyAwaitingFiltersPresent)) {
+            // told to wait and no failures detected
+            (decision === PASS || onlyAwaitingOrDisabledFiltersPresent)) {
+      // tag is told to wait
       decision = waitingResponse;
     }
 
+    // no waiting or PASS but with session somwhere in order?
     if (decision === SESSION ||
             ((decision === PASS) && sessionFiltersPresent)) {
       if (!lastSessionFilter.config.include) {
@@ -421,10 +438,12 @@
       }
 
       decision = SESSION;
-      if (lastSessionFilter instanceof SessionVariableFilter) {
+      if (lastSessionFilter instanceof Filter &&
+            lastSessionFilter.isSession()) {
         if (runLastSessionFilterIfPresent) {
           for (var c = 0; c < sessionFiltersToRun.length; c++) {
             try {
+              // it will run tag immediatelly or queue for execution for starter
               sessionFiltersToRun[c].runTag(tag);
             } catch (ex) {
               sessionFiltersToRun[c].log/*L*/
@@ -434,14 +453,20 @@
         }
       }
     }
-
+    
+    // deduplication logic:
+    // only passing url filters (PASS) but failing session 
+    // should have dedupe sent. if session is matched it will run and 
+    // tag will decide on running but pings will be handled standard 
+    // way "run" tag
     if (tag.config.dedupe && decision === PASS) {
-      if (lastUnmatched && lastUnmatched instanceof SessionVariableFilter) {
+      if (lastUnmatched && lastUnmatched instanceof Filter &&
+            lastUnmatched.isSession()) {
         tag.sendDedupePing = true;
         decision = FAIL;
       }
     }
-
+    
     return decision;
   };
 

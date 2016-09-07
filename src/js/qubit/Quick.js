@@ -3,7 +3,7 @@
 //:import qubit.Define;
 /*
  * Opentag, a tag deployment platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */

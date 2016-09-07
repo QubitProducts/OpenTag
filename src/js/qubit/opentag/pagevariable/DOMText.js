@@ -4,7 +4,7 @@
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
@@ -34,7 +34,9 @@
    */
   DOMText.prototype.getValue = function () {
     this.log.FINEST("reading DOM element contents value");/*L*/
-    return Utils.getElementValue(this.value);
+    var val = Utils.getElementValue(this.value);
+    this._updateCurrentValue(val);
+    return val;
   };
   
 }());

@@ -3,7 +3,7 @@
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
@@ -24,7 +24,7 @@
    * many more useful utilities. Please see the API.
    * 
    */
-  function Utils() {}
+  var Utils = function () {};
   
   var global = Define.global();
   
@@ -108,59 +108,6 @@
   Utils.variableExists = function (value) {
     return (value !== undefined) && (value !== null);
   };
-
-/*TRASH*/
-//  /**
-//   * @delete
-//   * @param {opentag.qubit.BaseTag} tag
-//   * @returns {Boolean}
-//   */
-//  Utils.determineIfSync = function (tag) {
-//    var i, ii, script, scripts, src;
-//    scripts = document.getElementsByTagName("script");
-//    for (i = 0, ii = scripts.length; i < ii; i += 1) {
-//      script = scripts[i];
-//      src = script.getAttribute("src");
-//      //removed "opentag", white labelling!!!
-//      if (!!src && (src.indexOf("" + 
-//          tag.config.opentagClientId + "-" + tag.config.profileName +
-//          ".js") > 0)) {
-//        return (script.getAttribute("async") === null && 
-//            //handle ie7
-//            (script.getAttribute("defer") === false ||
-//            //handle ie8
-//            script.getAttribute("defer") === "" ||
-//            //handle chrome/firefox
-//            script.getAttribute("defer") === null));
-//      } 
-//    }
-//    return true;
-//  };
-//  
-//  /**
-//   * @delete
-//   * COPY FROM OLD.
-//   * This function replaces following patterns ONLY:
-//   * a.b.c[#] + "ZZZ ${T}[i] YYY" -> "ZZZ a.b.c[i] YYY"
-//   * a.b.c[#] + "ZZZ ${T}.length YYY" -> "ZZZ a.b.c.length YYY"
-//   * 
-//   * It is a VERY private function.
-//   * 
-//   * @param {qubit.opentag.pagevariable.BaseVariable} pageVar
-//   * @param {String} token
-//   * @param {String} str
-//   * @returns {String}
-//   */
-//  Utils.substituteArray = function (pageVar, token, str) {
-//    var start, end, index, tok;
-//    index = pageVar.value.indexOf("[#]");
-//    start = pageVar.value.substring(0, index);
-//    end = pageVar.value.substring(index + 3);
-//    str = str.replace(new RegExp(token + "\\.length", "g"), start + ".length"); 
-//    str = str.replace(new RegExp(token + "(\\[.*?\\])", "g"), start + "$1" + end);
-//    return str;
-//  };
-/*~TRASH*/
 
   Utils.ANON_VARS = [];
   /**
@@ -270,7 +217,7 @@
     return null;
   };
   
-  //private helper for objectCopy
+  // private helper for objectCopy
   var travelArray = [];
   function existsInPath(object, copy) {
     var len = travelArray.length;
@@ -378,7 +325,7 @@
         }
       } catch (ie) {
         if (obj instanceof ActiveXObject && obj.nodeType !== undefined) {
-          return obj; //IE case, no comment
+          return obj; // IE case, no comment
         }
       }
       if (obj === document) {
@@ -401,7 +348,7 @@
     if (!noFunctions && obj instanceof Function) {
       var funStr = String(obj).replace(/\s+/g, "");
       if ((funStr.indexOf("{[nativecode]}") + 14) === funStr.length) {
-        //native case
+        // native case
         copy = function () {
           return obj.apply(parentObj || this, arguments);
         };
@@ -520,18 +467,18 @@
     if (!cfg || !cfg.nodes) {
       try {
         if (obj instanceof Node) {
-          //dont follow those objects
+          // dont follow those objects
           return;
         }
       } catch (ie) {
         if (obj instanceof ActiveXObject && obj.nodeType !== undefined) {
-          return; //IE case, no comment
+          return; // IE case, no comment
         }
       }
     }
     
     if (obj === global) {
-      //dont follow those objects
+      // dont follow those objects
       return;
     }
 
@@ -548,7 +495,7 @@
     parent = parent || obj;
 
     if (parent && prop && (parent[prop] !== parent[prop])) {
-      //live getters will be ommited
+      // live getters will be ommited
       return;
     }
 
@@ -630,7 +577,7 @@
           prototypeTemplate,
           pckg,
           constr) {
-    //or anonymous:
+    // or anonymous:
     var clazz = function () {
       if (constr) {
         return constr.apply(this, arguments);
@@ -639,10 +586,10 @@
       }
     };
         
-    //publish class
+    // publish class
     Define.clazz(classPath, clazz, extClass, pckg);
     
-    //pass prototype objects
+    // pass prototype objects
     for (var prop in prototypeTemplate) {
       if (prototypeTemplate.hasOwnProperty(prop) && prop !== "CONSTRUCTOR") {
         clazz.prototype[prop] = prototypeTemplate[prop];
@@ -769,10 +716,12 @@
    */
   Utils.removeFromArray = function (array, obj) {
     var i = 0, total = 0;
-    for (; i < array.length; i += 1) {
+    for (; i < array.length;) {
       if (array[i] === obj) {
         array.splice(i, 1);
         total++;
+      } else {
+        i++;
       }
     }
     return total;
@@ -837,7 +786,7 @@
     
     expression  = prefix + expression + suffix;
 
-    //must be geval
+    // must be geval
     Utils.geval(expression);
 
     var res = G.qubitopentagutilsgevalandreturn__var_test__;
@@ -891,7 +840,7 @@
    * @param {type} B
    * @returns {Object} returns A
    */
-  Utils.overrideFromBtoA = function (A, B) {
+  Utils.overrideFromLeftToRight = function (A, B) {
     if (A && B) {
       for (var prop in B) {
         if (B.hasOwnProperty(prop)) {
@@ -909,7 +858,8 @@
    */
   Utils.geval = function (expression) {
     if (window && window.execScript) {
-      return window.execScript(expression);
+      // ie9-10 doesn't like empty strings.
+      return window.execScript(expression === "" ? " " : expression);
     } else {
       return (function () {return global["eval"].call(global, expression); }());
     }
@@ -994,9 +944,27 @@
   // @TODO maybe loop will be more "smooth" choice, review it.
   var oldOnload = global.onload;
   global.onload = function (e) {
-    Utils.bodyReady();
-    if (oldOnload) {
-      oldOnload(e);
+    try {
+      Utils.bodyReady();
+    } catch (ex) {
+      // odd chrome cases.
+      try {
+        window.qubit.opentag.Utils.bodyReady();
+      } catch (ex1) {
+        // just try
+      }
+    }
+
+    var oldRef = false;
+
+    try {
+      oldRef = oldOnload;
+    } catch (ex2) {
+      // try!
+    }
+
+    if (oldRef) {
+      oldRef(e);
     }
   };
   
@@ -1045,7 +1013,7 @@
     };
 
 
-    //The DOM ready check for Internet Explorer
+    // The DOM ready check for Internet Explorer
     doScrollCheck = function () {
       if (isReady) {
         return;
@@ -1112,7 +1080,7 @@
       }
     };
 
-    //Handle when the DOM is ready
+    // Handle when the DOM is ready
     var ready = function (fn) {
       // Attach the listeners
       bindReadyComplete();
@@ -1125,7 +1093,7 @@
       }
     };
 
-    //Cleanup functions for the document ready method
+    // Cleanup functions for the document ready method
     if (document.addEventListener) {
       DOMContentLoaded = function () {
         document.removeEventListener("DOMContentLoaded",

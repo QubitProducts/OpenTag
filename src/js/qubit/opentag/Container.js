@@ -3,7 +3,7 @@
 //:import qubit.opentag.Timed
 //:import qubit.opentag.BaseTag
 //:import qubit.opentag.filter.BaseFilter
-//:import qubit.opentag.filter.SessionVariableFilter
+//:import qubit.opentag.filter.Filter
 //:import qubit.opentag.Tags
 //:import qubit.opentag.Ping
 //:import qubit.opentag.Session
@@ -12,7 +12,7 @@
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
@@ -20,13 +20,13 @@
 (function () {
   var Utils = qubit.opentag.Utils;
   var BaseFilter = qubit.opentag.filter.BaseFilter;
-  var SessionVariableFilter = qubit.opentag.filter.SessionVariableFilter;
+  var Filter = qubit.opentag.filter.Filter;
   var BaseTag = qubit.opentag.BaseTag;
   var Timed = qubit.opentag.Timed;
   var Tags = qubit.opentag.Tags;
   var Session = qubit.opentag.Session;//:session
   var Cookie = qubit.Cookie;
-  var log = new qubit.opentag.Log("Container -> ");
+  var log = new qubit.opentag.Log("Container -> ");/*L*/
 
   var _counter = 1;
 
@@ -150,7 +150,7 @@
        * being set to true. You can choose values from 0.0 to 1.0 (float).
        * Old tellLoadTimesProbability [ping]
        */
-      tellLoadTimesProbability: 0,
+      tellLoadTimesProbability: null,
       /**
        * @cfg {String} [pingServerUrl=null]
        * Ping server url setting. Statistic submission will not work without
@@ -200,19 +200,6 @@
     
     if (config) {
       this.setConfig(config);
-      /**
-       * Property indicates if tag is telling load times. Tag's
-       * implementation does attach timestamps for all their loading.
-       * This property is used to indicate if loading times will be reported
-       * by this container.
-       * Value of this property is likely to be randomised, you should adjust 
-       * `this.config.tellLoadTimesProbability` instead.
-       * @protected
-       * @property isTellingLoadTimes
-       * @type Boolean
-       */
-      this.isTellingLoadTimes =
-          this.config.tellLoadTimesProbability > Math.random();
       
       if (!config.name) {
         this.config.name = "Cont-" + _counter++;
@@ -228,10 +215,7 @@
     
       this.ping = new qubit.opentag.Ping(this.config);
 
-      var callback = this.sendPings.bind(this);
-      this._pingAsyncCallback = function () {
-        Timed.setTimeout(callback, 5);
-      };
+      this._sendPingsTrigger = this.sendPings.bind(this);
       
       /*~no-send*/
       if (config.init) {
@@ -241,6 +225,16 @@
           this.log.ERROR("init call failed:" + ex);/*L*/
         }
       }
+      
+      var _this = this;
+      this._tagLoadedHandler = function (event) {
+        if (_this._containerAlreadySentPings) {
+          _this.sendPingsNotTooOften();
+          if (event.success) {
+            event.tag.log.INFO("[Other]SENDING LOAD STATS");/*L*/
+          }
+        }
+      };
     }
     
     return this;
@@ -261,6 +255,52 @@
    */
   Container.register = function (ref) {
     Utils.addToArrayIfNotExist(containers, ref);
+  };
+  
+  /**
+   * Function indicates if tag is telling load times. Tag's
+   * implementation does attach timestamps for all their loading.
+   * This property is used to indicate if loading times will be reported
+   * by this container.
+   * Value of this property is likely to be randomised, you should adjust 
+   * `this.config.tellLoadTimesProbability` instead.
+   * @protected
+   * @property isTellingLoadTimes
+   * @type Boolean
+   */
+  Container.prototype.isTellingLoadTimes = function () {
+    var value = this.config.tellLoadTimesProbability;
+    if (value === null) {
+      value = 0;
+    }
+    return value > Math.random();
+  };
+  
+  /**
+   * Method to unregister and kill container.
+   * @param {Boolean} withTags if tags should be destroyed as well. 
+   *          Destroyed tags cannot be re-run and will be cancelled.
+   */
+  Container.prototype.destroy = function (withTags) {
+    this.destroyed = true;
+    this.unregister();
+    if (withTags) {
+      for (var prop in this.tags) {
+        var tag = this.tags[prop];
+        if (tag instanceof BaseTag) {
+          tag.destroy();
+          this.tags[prop] = null;
+          delete this.tags[prop];
+        }
+      }
+    }
+    var name = this.PACKAGE_NAME.split(".");
+    name = name[name.length - 1];
+    
+    var pkg = Utils.getParentObject(this.PACKAGE_NAME);
+    pkg[name] = null;
+    
+    delete pkg[name];
   };
   
   /**
@@ -298,9 +338,10 @@
   
   /**
    * Function used to unregister container from global registry.
+   * @param {Boolean} withTags
    */
-  Container.prototype.unregister = function () {
-    Container.unregister(this);
+  Container.prototype.unregister = function (withTags) {
+    Container.unregister(this, withTags);
   };
 
   /**
@@ -308,13 +349,27 @@
    * Unregister method for container. useful for debugging.
    * See `Container.register()` for more details.
    * @param {qubit.opentag.Container} ref
+   * @param {Boolean} withTags
    */
-  Container.unregister = function (ref) {
+  Container.unregister = function (ref, withTags) {
     Utils.addToArrayIfNotExist(containers, ref);
+    
     log.FINEST("Un-registering container named \"" +/*L*/
             ref.config.name + "\", instance of:");/*L*/
     log.FINEST(ref, true);/*L*/
+    
     var index = Utils.removeFromArray(containers, ref);
+    if (withTags) {
+      for (var prop in this.tags) {
+        var tag = this.tags[prop];
+        if (tag instanceof BaseTag) {
+          tag.unregister();
+          this.tags[prop] = null;
+          delete this.tags[prop];
+        }
+      }
+    }
+    
     if (!index || index.length === 0) {
       log.FINE("container is already unregisterd.");/*L*/
     }
@@ -379,6 +434,7 @@
       this.log.FINE("Tag with name `" + name + "` already is registered!");/*L*/
     } else {
       this.tags[name] = tag;
+      tag.onAfter(this._tagLoadedHandler);
       try {
         this.onTagRegistered(tag);
       } catch (ex) {
@@ -459,16 +515,16 @@
     for (i = 0, ii = scripts.length; i < ii; i += 1) {
       script = scripts[i];
       src = script.getAttribute("src");
-      //removed "opentag", white labelling!!!
+      // removed "opentag", white labelling!!!
       if (!!src && (src.indexOf("" + 
           this.config.clientId + "-" + this.getContainerId() +
           ".js") > 0)) {
         return (script.getAttribute("async") === null && 
-            //handle ie7
+            // handle ie7
             (script.getAttribute("defer") === false ||
-            //handle ie8
+            // handle ie8
             script.getAttribute("defer") === "" ||
-            //handle chrome/firefox
+            // handle chrome/firefox
             script.getAttribute("defer") === null));
       } 
     }
@@ -483,11 +539,12 @@
       var tags = this.tags;
       for (var name in tags) {
         if (tags.hasOwnProperty(name)) {
-          var filters = tags[name].getFilters();
+          var tmpTag = tags[name];
+          tmpTag.resolveAllDynamicData();
+          var filters = tmpTag.getFilters();
           for (var i = 0; i < filters.length; i++) {
             var filter = filters[i];
-            if (filter instanceof SessionVariableFilter &&
-                    !filter.isAllStartersDefaults()) {
+            if (filter instanceof Filter && filter.isSession()) {
               this.trackSession = true;
               break;
             }
@@ -526,6 +583,10 @@
    * @param {Boolean} force use if containers are LOCKED to enforce running.
    */
   Container.prototype.runTags = function (config, force) {
+    if (this.destroyed) {
+      throw "Container has been destroyed.";
+    }
+    
     if (!force) {
       if (Container.LOCKED || Utils.global().QUBIT_CONTAINERS_LOCKED) {
         this.log.INFO("All containers are LOCKED.");/*L*/
@@ -567,21 +628,21 @@
       }
     }
     
-    //important to run it after tags scanning for this container.
+    // important to run it after tags scanning for this container.
     this.prepareSessionIfNeeded();
     
-    //lets add priority option for tags
-    //@todo review if ordering does make any sense
+    // lets add priority option for tags
+    // @todo review if ordering does make any sense
     var orderedTags = this.getTagsInOrder();
     
     for (var z = 0; z < orderedTags.length; z++) {
       try {
         var tag = orderedTags[z];
         var name = tag.config.name;
-        //ignore tag state or check if clean and unstarted
+        // ignore tag state or check if clean and unstarted
         if (this.includedToRun(tag)) {
-          //if dependencies are defined, and they are in the container, 
-          //try to run them rather now instead of later! (reordering)
+          // if dependencies are defined, and they are in the container, 
+          // try to run them rather now instead of later! (reordering)
           var deps = tag.resolveDependencies();
           if (deps.length > 0) {
             for (var i = 0; i < deps.length; i++) {
@@ -603,7 +664,7 @@
                 "' to run.\n Error: " + ex);/*L*/
       }
     }
-    //try to send pings sooner than later
+    // try to send pings sooner than later
     Timed.setTimeout(function () {
       this.sendPingsNotTooOften();
     }.bind(this), 1100);
@@ -644,6 +705,7 @@
     }
     return tagsOrdered;
   };
+  
   /**
    * @private Strictly private.
    * @param {type} tag
@@ -661,7 +723,7 @@
         if (this.config.delayDocWrite) {
           tag.delayDocWrite = true;
         }
-        //attach session if necessary
+        // attach session if necessary
         tag.session = tag.session || this.session;//:session
         tag[command]();
       }
@@ -890,6 +952,11 @@
       l.INFO("********************************************************",
                     0, styling);
       /*~log*/
+     
+      // container adds listener to each tag to refire ping if necessary,
+      // this property will cancell all those trying container to send
+      // pings very early: before container finishes.
+      this._containerAlreadySentPings = new Date().valueOf();
       
       /*no-send*/
       this.sendPingsNotTooOften();
@@ -926,26 +993,32 @@
   /**
    * Function will reset all the tags to initial state. After reset all tags can
    * be re-run. Logs are never resetted.
+   * @param {Boolean} skipFilters - if filters reset should be skipped.
    */
-  Container.prototype.resetAllTags = function () {
+  Container.prototype.resetAllTags = function (skipFilters) {
     this.log.WARN("reseting all tags!");/*L*/
     for (var prop in this.tags) {
       if (this.tags.hasOwnProperty(prop)) {
-        this.tags[prop].reset();
+        var tag = this.tags[prop];
+        tag.reset();
+        if (!skipFilters) {
+          tag.resetFilters();
+        }
       }
     }
   };
   
   /**
    * Function reset this container (including it's registered tags).
+   * @param {Boolean} skipFilters - if filters should not be reset.
    */
-  Container.prototype.reset = function () {
+  Container.prototype.reset = function (skipFilters) {
     this.log.WARN("reseting container!");/*L*/
     this.runningFinished = undefined;
     this._waitForAllTagsToFinishWaiting = undefined;
     this.runningStarted = undefined;
     this._showFinishedOnce = undefined;
-    this.resetAllTags();
+    this.resetAllTags(skipFilters);
   };
   
   /*no-send*/
@@ -957,7 +1030,7 @@
    */
   Container.prototype.sendPingsNotTooOften = function () {
     this._sndLck = this._sndLck || {};
-    Timed.runIfNotScheduled(this._pingAsyncCallback, 2000, this._sndLck);
+    Timed.runIfNotScheduled(this._sendPingsTrigger, 2000, this._sndLck);
   };
   
   /**
@@ -971,7 +1044,7 @@
     }
     
     var i;
-    if (this.isTellingLoadTimes) {
+    if (this.isTellingLoadTimes()) {
 //    Those are available in results:
 //      run: runScripts, (to be sent NOW)
 //      failed: failed, (to be NOT sent)
@@ -984,7 +1057,7 @@
       var loadTimes;
       
       if (results.run) {
-        //send "just run" load times
+        // send "just run" load times
         loadTimes = Tags.getLoadTimes(results.run);
         this.log.INFO("Sending standard load pings");/*L*/
         this.lastPingsSentTime = new Date().valueOf();
@@ -992,16 +1065,14 @@
       }
       
       /*session*/
-      //dedupe part:
+      // dedupe part:
       loadTimes = Tags.getLoadTimes();
       var deduplicatedTagsToBeSent = [];
       for (i = 0; i < loadTimes.length; i++) {
-        (function (j) {
-          var tag = loadTimes[j].tag;
-          if (tag.config.dedupe && tag.sendDedupePing) {
-            deduplicatedTagsToBeSent.push(tag);
-          }
-        }(i));
+        var tag = loadTimes[i].tag;
+        if (tag.config.dedupe && tag.sendDedupePing) {
+          deduplicatedTagsToBeSent.push(tag);
+        }
       }
       if (deduplicatedTagsToBeSent.length > 0) {
         this.log.INFO("Sending deduplication pings");/*L*/
@@ -1014,21 +1085,10 @@
         loadTimes = Tags.getLoadTimes(results.other);
         var otherTagsToBeSent = [];
         for (i = 0; i < loadTimes.length; i++) {
-          (function (j) {
-            var tag = loadTimes[j].tag;
-            otherTagsToBeSent.push(loadTimes[j]);
-            var after = tag.onAfter;
-            tag.onAfter = function (success) {
-              after.call(tag, success);
-              _this.sendPingsNotTooOften();
-              if (success) {
-                tag.log.INFO("[Other]SENDING LOAD STATS");/*L*/
-              }
-            };
-          }(i));
+          otherTagsToBeSent.push(loadTimes[i]);
         }
         
-        //in case tags are fired and method used separately
+        // in case tags are fired and method used separately
         if (otherTagsToBeSent.length > 0) {
           this.ping.send(this, otherTagsToBeSent);
         }
@@ -1039,22 +1099,10 @@
         loadTimes = Tags.getLoadTimes(results.awaiting);
         var awaitingTagsToBeSent = [];
         for (i = 0; i < loadTimes.length; i++) {
-          (function (j) {
-            var tag = loadTimes[j].tag;
-            awaitingTagsToBeSent.push(loadTimes[j]);
-
-            var after = tag.onAfter;
-            tag.onAfter = function (success) {
-              after.call(tag, success);
-              _this.sendPingsNotTooOften();
-              if (success) {
-                tag.log.INFO("[Awaiting]SENDING LOAD STATS");/*L*/
-              }
-            };
-          }(i));
+          awaitingTagsToBeSent.push(loadTimes[i]);
         }
         
-        //in case tags are fired and method used separately
+        // in case tags are fired and method used separately
         if (awaitingTagsToBeSent.length > 0) {
           this.ping.send(this, awaitingTagsToBeSent);
         }
@@ -1110,7 +1158,7 @@
           filterReady = filterReady || {};
           attachRenamedIfExist(filterReady, tag, name);
         } else if (tag.config.needsConsent) {
-          //consent needing unloaded
+          // consent needing unloaded
           consent = consent || {};
           attachRenamedIfExist(consent, tag, name);
         } else {
@@ -1153,8 +1201,8 @@
       if (this.tags.hasOwnProperty(prop)) {
         var tag = this.tags[prop];
         if (tag instanceof qubit.opentag.BaseTag) {
-          //tag.filtersState() < 0 === filters are passed
-          //tag.locked is not locked
+          // tag.filtersState() < 0 === filters are passed
+          // tag.locked is not locked
           // === 0 FAILED
           // > 0 filter is awaiting
           var state = tag.filtersState();
@@ -1188,7 +1236,7 @@
       if (this.tags.hasOwnProperty(prop)) {
         var tVars = this.tags[prop].getPageVariables();
         for (var i = 0; i < tVars.length; i++) {
-          //for each parameter, get variable instance if not added already
+          // for each parameter, get variable instance if not added already
           Utils.addToArrayIfNotExist(vars, tVars[i]);
         }
       }

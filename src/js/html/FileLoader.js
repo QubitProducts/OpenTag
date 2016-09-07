@@ -32,7 +32,7 @@ q.html.fileLoader.load = function (url, preLoadAction, postLoadHandler,
     };
   };
   
-  //try to run the preLoadAction.
+  // try to run the preLoadAction.
   try {
     if (preLoadAction) {
       preLoadResult = preLoadAction(url);
@@ -42,11 +42,11 @@ q.html.fileLoader.load = function (url, preLoadAction, postLoadHandler,
     postLoadHandler(url, "Exception loading pre", true);
   } finally {
     if (preLoadResult !== false) {
-      //create the javascript element.
+      // create the javascript element.
       scriptEl = q.html.fileLoader.createScriptEl(url, async, 
           false, attributes);
-      //assign the post load handler to run when it has loaded, 
-      //if it exists.
+      // assign the post load handler to run when it has loaded, 
+      // if it exists.
       if (postLoadHandler) {
         scriptEl.onload = doPostLoad(false);
         scriptEl.onerror = doPostLoad(true);
@@ -64,7 +64,7 @@ q.html.fileLoader.load = function (url, preLoadAction, postLoadHandler,
       }
       
       parentNode.appendChild(scriptEl);
-      //The script is not loaded until it is added to the script.
+      // The script is not loaded until it is added to the script.
       
     }
   }
@@ -74,20 +74,23 @@ q.html.fileLoader.createScriptEl = function (path, async, forceReload, attr) {
   scriptEl.type = "text/javascript";
   scriptEl.src = q.html.fileLoader.tidyUrl(path) + 
     (forceReload ? ("?" + new Date().getTime()) : "");
-  //Makes FF (version < 4) behave like IE/WebKit 
+  // Makes FF (version < 4) behave like IE/WebKit 
   //(this is on bydefault on FF4+)
-  //See: https://developer.mozilla.org/en/html/element/script
+  // See: https://developer.mozilla.org/en/html/element/script
   if (async !== false) {
     scriptEl.async = "true";
     scriptEl.defer = "true";
   } else {
-    //TODO investigate whether scriptEl.async = false is enough in all browsers
-    //in that case we don't need this mysterious if statement
+    // TODO investigate whether scriptEl.async = false is enough in all browsers
+    // in that case we don't need this mysterious if statement
     scriptEl.async = "false";
     if (scriptEl.async !== false) {
       scriptEl.async = false;
     }
     scriptEl.defer = "false";
+    if (scriptEl.defer !== false) {
+      scriptEl.defer = false;
+    }
   }
   for (a in attr) {
     if (attr.hasOwnProperty(a)) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * @author Peter Fronc peter.fronc@qubitproducts.com
  * 
@@ -117,10 +117,10 @@
       }
       if (config.raw) {
         raw = config.raw;
-      } //json type as default
+      } // json type as default
       if (config.renderFunction) {
         render = config.renderFunction;
-      } //json type as default
+      } // json type as default
       if (config.excludeInstances) {
         excludeInstances = config.excludeInstances;
       }
@@ -276,7 +276,7 @@
           var elString = ("\"" + key.replace(/\"/g, "\\\"") + "\":") + objEl;
           parts.push(elString);
         }
-      } catch (ex) {//SOME OBJECT CAN THROW EXCEPTION ON Access, FRAMES ETC.
+      } catch (ex) {// SOME OBJECT CAN THROW EXCEPTION ON Access, FRAMES ETC.
         removeFromArray(object, parentElements);
         return jsonString(String(ex));
       }
@@ -392,7 +392,7 @@
   try {
     module.exports = json;
   } catch (e) {
-    //try exports
+    // try exports
   }
 }());
 

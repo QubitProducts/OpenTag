@@ -1,6 +1,6 @@
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * @author Piotr (Peter) Fronc <peter.fronc@qubitproducts.com>
  */
@@ -21,11 +21,12 @@
   var Timed = qubit.opentag.Timed;
   var BaseVariable = qubit.opentag.pagevariable.BaseVariable;
   var Expression = qubit.opentag.pagevariable.Expression;
+  var UniversalVariable = qubit.opentag.pagevariable.UniversalVariable;
   var DOMText = qubit.opentag.pagevariable.DOMText;
   var Cookie = qubit.opentag.pagevariable.Cookie;
   var URLQuery = qubit.opentag.pagevariable.URLQuery;
 
-  //var log = new qubit.opentag.Log("TagHelper -> ");
+  // var log = new qubit.opentag.Log("TagHelper -> ");
 
   /**
    * @class qubit.opentag.TagHelper
@@ -106,7 +107,7 @@
       var params = tag.parameters;
       if (params) {
         for (var i = 0; i < params.length; i++) {
-          if (params[i].variable === varRef) {
+          if (tag.getVariableForParameter(params[i]) === varRef) {
             ret.push(params[i]);
           }
         }
@@ -146,7 +147,7 @@
    */
   TagHelper.allParameterVariablesReadyForTag = function (tag, tryDefaults) {
     var useDefaults = tryDefaults;
-    var log = tag.log;
+    var log = tag.log;/*L*/
     var allReady = true;
     var vars = tag.getPageVariables();
 
@@ -223,19 +224,14 @@
    */
   TagHelper.validateAndGetVariableForParameter = function (param) {
     if (param.hasOwnProperty("variable") && param.variable) {// @todo review
-      //validate it:
+      // validate it:
       param.variable = TagHelper.initPageVariable(param.variable);
-    } else if (param.uv) {//empty strings are also excluded
-      param.variable = new Expression({
-        name: param.uv,
-        value: param.uv
-      });
-    } else {
-      //got here? well: not set! initialize:
-      param.variable = TagHelper.initPageVariable({
-        value: undefined,
-        empty: true //marker to recognise empty initialization
-      });
+      // DISABLING UV SHORT DEFINITIONS PROCESSING
+//    } else if (param.uv) {// empty strings are also excluded
+//      param.variable = new UniversalVariable({
+//        name: param.uv,
+//        value: param.uv
+//      });
     }
     
     return param.variable;

@@ -3,7 +3,7 @@
 //:import qubit.Cookie
 
 q.cookie.SimpleSessionCounter = {};
-//Qubit Session Tracker
+// Qubit Session Tracker
 q.cookie.SimpleSessionCounter._cookieName = "_qst_s";
 q.cookie.SimpleSessionCounter._sessionCookie = "_qsst_s";
 q.cookie.SimpleSessionCounter.update = function (domain) {

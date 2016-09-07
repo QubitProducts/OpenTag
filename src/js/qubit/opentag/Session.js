@@ -12,7 +12,7 @@
   var Cookie = qubit.Cookie;
   var Utils = qubit.opentag.Utils;
     
-  var log = new qubit.opentag.Log("Session -> ");
+  var log = new qubit.opentag.Log("Session -> ");/*L*/
   
   /**
    * #Session utilities class.
@@ -61,7 +61,7 @@
     var nonCompressedCookie = !!cookie;
     
     if (cookie === null) {
-      //try compressed new cookie in use
+      // try compressed new cookie in use
       cookie = Cookie.get(xCookieName, true);
       cookie = compressor.decompress(cookie);
     }
@@ -94,9 +94,9 @@
     
     now = new Date().getTime();
     
-    //At this point session.sessionCount is from SimpleSessionCounter
-    //cookie.sc is the last simpleSessionCounter result we have
-    //we do this to see if there is a change in it
+    // At this point session.sessionCount is from SimpleSessionCounter
+    // cookie.sc is the last simpleSessionCounter result we have
+    // we do this to see if there is a change in it
     if (session.sessionCount !== parseInt(cookie.sc, 10)) {
       cookie.sessionStartTime = now;
       cookie.sc = session.sessionCount;
@@ -108,7 +108,7 @@
       });
       cookie.sessionLandingPage = Utils.getUrl().substring(0, 300);
     } else if (Session.isReferrerDifferent()) {
-      //If the referrer is different, then update it.
+      // If the referrer is different, then update it.
       if (!Session
               .referrerIsSameAsPrevious(cookie.referrer, now, 30 * 60 * 1000)) {
         cookie.referrer.push({
@@ -121,7 +121,7 @@
         cookie.sessionCount += 1;
       }
     }
-    //Always set the saved session count to be the used sessionCount
+    // Always set the saved session count to be the used sessionCount
     session.sessionCount = cookie.sessionCount;
     session.sessionStartTime = cookie.sessionStartTime;
     session.pageStartTime = now;
@@ -154,7 +154,7 @@
     session.referrer = cookie.referrer;
     
     if (nonCompressedCookie) {
-      //remove old cookie if exists
+      // remove old cookie if exists
       Cookie.rm(cookieName);
     }
     
@@ -176,7 +176,7 @@
     };
     
     session.getCookie = function (name, compressed) {
-      var res = Cookie.get(name, true); //get encoded
+      var res = Cookie.get(name, true); // get encoded
       if (res && (compressed || name.indexOf("x_") === 0)) {
         log.FINE("getCookie() : Comressed cookie accessed:\n" +/*L*/
                 name + "=" + res);/*L*/
@@ -186,7 +186,7 @@
           log.ERROR("Cookie failed to decompress: " + ex);/*L*/
         }
       } else {
-        //apply decoding
+        // apply decoding
         if (res !== null) {
           res = Cookie.decode(res);
         }
@@ -254,8 +254,8 @@
     var start, end, ref;
     ref = Session.getReferrer();
     start = ref.indexOf("://");
-    //If it can't find a protocol, something weird is going on. 
-    //Return it and track it on the server.
+    // If it can't find a protocol, something weird is going on. 
+    // Return it and track it on the server.
     if (start === -1) {
       return true;
     }

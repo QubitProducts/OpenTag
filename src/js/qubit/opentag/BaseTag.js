@@ -10,7 +10,7 @@
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
@@ -24,8 +24,10 @@
   var TagHelper = qubit.opentag.TagHelper;
   var BaseVariable = qubit.opentag.pagevariable.BaseVariable;
   var Cookie = qubit.Cookie;
+  var Define = qubit.Define;
   
-  var log = new qubit.opentag.Log("BaseTag -> ");
+  // used in static functions
+  var log = new qubit.opentag.Log("BaseTag -> ");/*L*/
 
   /**
    * @class qubit.opentag.BaseTag
@@ -48,6 +50,10 @@
    */
   function BaseTag(config) {
     
+    /**
+     * If property is set and is a number, re-running limit will be applied.
+     * @cfg {Number} [reRunLimit=undefined]
+     */
     var defaults = {
      /**
       * How much filter should be timed out. By default - never if
@@ -131,7 +137,13 @@
        * @cfg locked
        * @type Boolean
        */
-      locked: false
+      locked: false,
+      /**
+       * 
+       * @cfg reRunOnVariableChange
+       * @type Boolean
+       */
+      reRunOnVariableChange: false
     };
     
     Utils.setIfUnset(config, defaults);
@@ -182,6 +194,17 @@
      */
     this.session = null;
     
+    /**
+     * Idicates if tag stats has been submitted.
+     * Typically this property is set to true by when tag ping is sent.
+     * Setting this property to true will cause ping not to be sent.
+     * 
+     * @property {Boolean}
+     */
+    this.pingSent = false;
+    
+    this.reRunCounter = 0;
+    
     if (config) {
       this.addState("INITIAL");
 
@@ -210,10 +233,12 @@
       }
       
       this.onTagInit();
+      
+      this.handleVariableChange = this._handleVariableChange.bind(this);
     }
   }
   
-  qubit.Define.clazz("qubit.opentag.BaseTag", BaseTag, GenericLoader);
+  Define.clazz("qubit.opentag.BaseTag", BaseTag, GenericLoader);
   
   BaseTag.prototype.setupConfig = function (config) {
     if (!config) {
@@ -250,8 +275,8 @@
       this.lock();
     }
     
-    this.log.FINEST("Initializing variables.");/*L*/
-    this.initPageVariablesForParameters();
+//    this.log.FINEST("Initializing variables.");/*L*/
+//    this.initPageVariablesForParameters();
   };
   
   /**
@@ -313,8 +338,33 @@
    */
   BaseTag.prototype.FILTER_WAIT_TIMEOUT = -1;
   
+  BaseTag.prototype._isVariable = function (variable) {
+    return variable !== null && variable !== undefined;
+  };
+  
   BaseTag.prototype.run = function () {
+    if (this.destroyed) {
+      throw "Tag is destroyed.";
+    }
+    
     this.resolveAllDynamicData();
+    
+    var params = this.parameters;
+    
+    // validate parameters 
+    if (params) {
+      for (var i = 0; i < params.length; i++) {
+        var variable = this.getVariableForParameter(params[i]);
+        if (!this._isVariable(variable)) {
+          this.log.ERROR("Parameter is missing variable!"); /*L*/
+          this.log.ERROR(params[i]); /*L*/
+          this._markLoadingDependenciesFailed();
+          this._markFinished();
+          return;
+        }
+      }
+    }
+    
     if (this.config.runner) {
       var ret = false;
       try {
@@ -422,6 +472,10 @@
    * @returns {BaseFilter.state}
    */
   BaseTag.prototype.runIfFiltersPass = function () {
+    if (this.destroyed) {
+      throw "Tag is destroyed.";
+    }
+    
     this.resolveAllDynamicData();
     var state = this.filtersState(true);
     this.addState("FILTER_ACTIVE");
@@ -430,7 +484,7 @@
       this.filtersRunTriggered = new Date().valueOf();
     }
     
-    //it is a number of BaseFilter.state type or time when to stop checking
+    // it is a number of BaseFilter.state type or time when to stop checking
     if (state === BaseFilter.state.SESSION) {
       this.addState("AWAITING_CALLBACK");
       this.log.FINE("tag is in session and will be manually triggered " + /*L*/
@@ -453,8 +507,8 @@
       var tout = this.config.filterTimeout;
       if (tout < 0 || 
               ((new Date().valueOf() - this.filtersRunTriggered) > tout)) {
-        //try again in [state] ms in future
-        //if state is lesser than 0 its passing call and the end.
+        // try again in [state] ms in future
+        // if state is lesser than 0 its passing call and the end.
         if (!this._awaitingForFilterInformed) {
           this.log.INFO("filters found indicating for tag to wait " +/*L*/
                   "for applicable conditions - waiting...");/*L*/
@@ -726,7 +780,7 @@
     var map = this.failedDependenciesToParse;
     if (map) {
       this.failedDependenciesToParse = null;
-      this.addDependenciesList(map, qubit.Define.clientSpaceClasspath());
+      this.addDependenciesList(map, Define.clientSpaceClasspath());
     }
     return this.dependencies;
   };
@@ -739,7 +793,7 @@
    */
   BaseTag.prototype.addClientVariablesMap = function (map) {
     this.unresolvedClientVariablesMap = 
-      this.addVariablesMap(map, qubit.Define.clientSpaceClasspath());
+      this._addVariablesMap(map, Define.clientSpaceClasspath());
     return this.unresolvedClientVariablesMap;
   };
   
@@ -753,6 +807,14 @@
       this.unresolvedClientVariablesMap = null;
       this.addClientVariablesMap(map);
     }
+    
+    map = this.unresolvedVariablesMap;
+    
+    if (map) {
+      this.unresolvedVariablesMap = null;
+      this.addVariablesMap(map);
+    }
+    
     return this.getPageVariables();
   };
   
@@ -761,7 +823,21 @@
    * @param {type} map
    * @returns {undefined}
    */
-  BaseTag.prototype.addVariablesMap = function (map, ns) {
+  BaseTag.prototype.addVariablesMap = function (map) {
+    this.unresolvedVariablesMap = 
+      this._addVariablesMap(map);
+    return this.unresolvedVariablesMap;
+  };
+  
+  /**
+   * @private
+   * 
+   * Function adding variables map with namespace provided - worker function.
+   * 
+   * @param {type} map
+   * @returns {undefined}
+   */
+  BaseTag.prototype._addVariablesMap = function (map, ns) {
     if (!map) {
       return;
     }
@@ -779,7 +855,11 @@
           }
           var obj = Utils.getObjectUsingPath(item);
           if (obj) {
-            namedVariables[prop] = item;
+            if (obj instanceof BaseVariable) {
+              namedVariables[prop] = obj;
+            } else {
+              namedVariables[prop] = item;
+            }
           } else {
             unresolvedVariablesMap[prop] = original;
           }
@@ -875,8 +955,8 @@
    */
   BaseTag.prototype.replaceTokensWithValues = function (string) {
     if (!string || string.indexOf("${") === -1) {
-      //serious performance improvements.
-      //regex are heavy
+      // serious performance improvements.
+      // regex are heavy
       return string;
     }
     var params = this.parameters;
@@ -928,8 +1008,8 @@
           function (tokenName, variable) {
     var param = this.getParameterByTokenName(tokenName);
     if (param !== null) {
-      //it will be automatically converted by TagHelper to 
-      //the instance on first access.
+      // it will be automatically converted by TagHelper to 
+      // the instance on first access.
       param.variable = {
         value: variable
       };
@@ -964,7 +1044,7 @@
           this.log.ERROR("Variable defaults string is invalid: " + /*L*/
                   param.defaultValue);/*L*/
           return undefined;
-          //throw ex;
+          // throw ex;
         }
       }
     }
@@ -1015,7 +1095,7 @@
    */
   BaseTag.prototype.addClientFiltersList = function (filters) {
     this.unresolvedClientFilterClasspaths = 
-      this.addFiltersList(filters, qubit.Define.clientSpaceClasspath());
+      this.addFiltersList(filters, Define.clientSpaceClasspath());
     return this.unresolvedClientFilterClasspaths;
   };
   
@@ -1033,10 +1113,9 @@
   };
   
   /**
-   * 
-   * @param {type} filters
-   * @param {type} ns
-   * @returns {undefined}
+   * Function used to add filters to tag.
+   * @param {Array} filters array of classpaths/references
+   * @param {String} ns namespace to use (optional)
    */
   BaseTag.prototype.addFiltersList = function (filters, ns) {
     var unresolved = [];
@@ -1047,15 +1126,15 @@
         var cp = null;
         
         if (typeof (filter) === "string") {
+          cp = filter;
           if (ns) {
             filter = ns + "." + filter;
           }
-          cp = filter;
           filter = Utils.getObjectUsingPath(filter);
         }
 
         if (typeof (filter) === "function") {
-          var FilterClass = filter;//linter
+          var FilterClass = filter;// linter
           filter = new FilterClass();
         }
         
@@ -1092,14 +1171,16 @@
    */
   BaseTag.prototype.reset = function () {
     BaseTag.SUPER.prototype.reset.call(this);
-    this.resetFilters();
     var u;
     this.filtersPassed = u;
     this.dedupePingSent = u;
-    this.pingSent = u;
+    this.pingSent = false;
     this._runOnceIfFiltersPassTriggered = u;
     this.filtersRunTriggered = u;
     this._runner = u;
+    this.reRunCounter = 0;
+    
+    this.detachVariablesChangedListeners();
   };
   
   /**
@@ -1205,6 +1286,15 @@
   };
   
   /**
+   * Destroys tag - destroyed tag cannot be re-run.
+   */
+  BaseTag.prototype.destroy = function () {
+    this.destroyed = true;
+    this.cancel();
+    BaseTag.unregister(this);
+  };
+  
+  /**
    * Use this function to unregister `tag` from the registry.
    * @static
    * @param {qubit.opentag.BaseTag} tag
@@ -1215,7 +1305,7 @@
     log.FINEST(tag, true);/*L*/
     var index = Utils.removeFromArray(tags, tag);
     if (!index || index.length === 0) {/*L*/
-      log.FINEST("tag " + tag.config.name + " is already unregisterd.");/*L*/
+      log.FINEST("tag " + tag.config.name + " is already unregistered.");/*L*/
     }/*L*/
 
     tag._tagIndex = -1;
@@ -1246,31 +1336,31 @@
     return tags;
   };
   
-  /**
-   * @protected
-   * Function used to validate and initialize parameters and any variables 
-   * assigned. If variables were passed as plain objects, they will be converted
-   * to BaseVariable instances.
-   * It is always run at constructor time.
-   */
-  BaseTag.prototype.initPageVariablesForParameters = function () {
-    var params = this.parameters;
-    if (params) {
-      for (var i = 0; i < params.length; i++) {
-        params[i].variable = TagHelper
-                .validateAndGetVariableForParameter(params[i]);
-      }
-    }
-    var namedVariables = this.namedVariables;
-    if (namedVariables) {
-      for (var prop in namedVariables) {
-        if (namedVariables.hasOwnProperty(prop)) {
-          namedVariables[prop] = 
-            TagHelper.initPageVariable(namedVariables[prop]);
-        }
-      }
-    }
-  };
+//  /**
+//   * @protected
+//   * Function used to validate and initialize parameters and any variables 
+//   * assigned. If variables were passed as plain objects, they will be converted
+//   * to BaseVariable instances.
+//   * It is always run at constructor time.
+//   */
+//  BaseTag.prototype.initPageVariablesForParameters = function () {
+//    var params = this.parameters;
+//    if (params) {
+//      for (var i = 0; i < params.length; i++) {
+//        params[i].variable = TagHelper
+//                .validateAndGetVariableForParameter(params[i]);
+//      }
+//    }
+//    var namedVariables = this.namedVariables;
+//    if (namedVariables) {
+//      for (var prop in namedVariables) {
+//        if (namedVariables.hasOwnProperty(prop)) {
+//          namedVariables[prop] = 
+//            TagHelper.initPageVariable(namedVariables[prop]);
+//        }
+//      }
+//    }
+//  };
   
   /**
    * Function returns all page variables defined within this tag.
@@ -1287,15 +1377,15 @@
     if (params) {
       for (var i = 0; i < params.length; i++) {
         var v = this.getVariableForParameter(params[i]);
-        if (v !== null) {
+        if (this._isVariable(v)) {
           Utils.addToArrayIfNotExist(vars, v);
         }
       }
     }
-    //add named variables and do not duplicate
+    // add named variables and do not duplicate
     if (this.namedVariables) {
       for (var key in this.namedVariables) {
-        //getSetVariable validates each time variable
+        // getSetVariable validates each time variable
         Utils.addToArrayIfNotExist(vars, _getSetNamedVariable(this, key));
       }
     }
@@ -1323,15 +1413,16 @@
    * @returns {qubit.opentag.pagevariable.BaseVariable} BaseVariable instance
    */ 
   BaseTag.prototype.getVariableForParameter = function (param) {
-    var variable = TagHelper.validateAndGetVariableForParameter(param);
-    var existAndIsNotEmpty = variable && !variable.config.empty;
+    var variable;
     var namedVariables = this.namedVariables;
-    if (!existAndIsNotEmpty && 
-            (namedVariables && namedVariables[param.token])) {
-      //@todo clean it up
-      //use alternative value
+    if ((namedVariables && namedVariables[param.token])) {
       variable = _getSetNamedVariable(this, param.token);
     }
+    
+    if (!variable) {
+      variable = TagHelper.validateAndGetVariableForParameter(param);
+    }
+    
     return variable;
   };
 
@@ -1405,18 +1496,34 @@
     return variable;
   }
   
+  /**
+   * Returns unique ID that is associated with this tag.
+   * @returns {String} unique Id.
+   */
+  BaseTag.prototype.getId = function () {
+    return this._getUniqueId();
+  };
+  
   BaseTag.prototype._getUniqueId = function () {
-    var id = this.config.name;
     if (this.config.id) {
-      id = this.config.id;
+      return this.config.id;
     }
-    return id;
+    
+    if (String(this.CLASSPATH).indexOf(Define.STANDARD_CS_NS) === 0) {
+      return this.CLASSPATH.substring(Define.STANDARD_CS_NS.length + 1);
+    } else {
+      return this.CLASSPATH + "#" + this.config.name;
+    }
   };
   
   var forceCookiePrefix = "qubit.tag.forceRunning_";
   var disableCookiePrefix = "qubit.tag.disableRunning_";
   var cookieRunAll = "qubit.tag.forceAllToRun";
   
+  /**
+   * @returns {Boolean} if there is cookie set to ignore `disabled`
+   * flag on tag.
+   */
   BaseTag.prototype.cookieSaysToRunEvenIfDisabled = function () {
     var id = this._getUniqueId();
     var ret = !!Cookie.get(cookieRunAll);
@@ -1446,7 +1553,7 @@
   };
   
   /**
-   * 
+   * Function will set cookie so this tag will be disabled and will not run.
    */
   BaseTag.prototype.setCookieToDisable = function () {
     var id = this._getUniqueId();
@@ -1454,7 +1561,7 @@
   };
   
   /**
-   * 
+   * Function removes cookie set to disable this tag (if any).
    */
   BaseTag.prototype.rmCookieToDisable = function () {
     var id = this._getUniqueId();
@@ -1462,7 +1569,7 @@
   };
   
   /**
-   * 
+   * Function tells if tag is disabled by tag cookie.
    * @returns {Boolean} if disabled by cookie
    */
   BaseTag.prototype.disabledByCookie = function () {
@@ -1488,7 +1595,7 @@
   };
   
   /**
-   * 
+   * Function will remove all cookies that may block all tags from running.
    */
   BaseTag.rmAllDisablingCookies = function () {
     Utils.rmCookiesMatching(disableCookiePrefix);
@@ -1504,4 +1611,111 @@
     Utils.rmCookiesMatching(forceCookiePrefix);
     BaseTag.rmCookieForcingTagsToRun();
   };
+  
+  /**
+   * Triggered when variables supporting variable change events change.
+   * Currently only QProtocolVariable variables trigger such events.
+   * 
+   * This function start observation process automatically.
+   * 
+   * @param {Function} callback firing when variable value changes
+   * @event onVariableChanged
+   */
+  BaseTag.prototype.onVariableChanged = function (callback) {
+    this.attachVariablesChangedListeners(true);
+    this.events.on("variableChanged", callback);
+  };
+  
+  /**
+   * @private
+   * 
+   * Function is a worker handling variable changed events (currently only
+   * from qprotocol).
+   * 
+   * If tag is not running already - will be reset with filters 
+   * and re-triggered.
+   * 
+   * This handler will also call `this.onVariableChanged(oldValue, variable);`
+   * 
+   * @param {Object} event event containig "newValue", "oldValue" and 
+   * "variable"
+   */
+  BaseTag.prototype._handleVariableChange = function (event) {
+    /*log*/
+    this.log.FINEST("Variable " + event.variable.CLASSPATH + 
+            " changed from : " + event.oldValue + "to:" +  event.newValue);
+    /*~log*/
+    
+    this.events.call("variableChanged", event);
+    
+    if (!this.isRunning && this.config.reRunOnVariableChange) {
+      if (!isNaN(this.config.reRunLimit)) {
+        if (this.config.reRunLimit <= this.reRunCounter) {
+          return;
+        }
+      }
+      
+      var counterVal = this.reRunCounter + 1;
+      this.reset();
+      // reset() resets counter too, not for this case:
+      this.reRunCounter = counterVal;
+      this.resetFilters();
+      this.runIfFiltersPass();
+    }
+  };
+  
+  /**
+   * Function will iterate over all variables and attach this tag's 
+   * default page variables changed events handler (`handleVariableChange`) .
+   * 
+   * This function will add event and turn on events engine for variables if 
+   * necessary - `reRunOnVariableChange' or `observeVariables` must be set to
+   * true in config.
+   * 
+   * Use force parameter to overide and attach events. 
+   * Note that `reRunOnVariableChange` is still required for tag to re-run, 
+   * if it is not set to true - only custom variables handlers 
+   * will be triggered.
+   * 
+   * @param {Boolean} force use to force events handling.
+   */
+  BaseTag.prototype.attachVariablesChangedListeners = function (force) {
+    var variables = this.getPageVariables();
+    
+    var startObserving = !!(this.config.reRunOnVariableChange || 
+      this.config.observeVariables || force);
+    
+    if (startObserving) {
+      for (var i = 0; i < variables.length; i++) {
+        var variable = variables[i];
+        variable.onValueChanged(this.handleVariableChange, startObserving);
+      }
+    }
+  };
+
+  /**
+   * Function will iterate over all variables and detach this tag handler to
+   * their onchange events.
+   * Note that `reset()` will call this function.
+   */
+  BaseTag.prototype.detachVariablesChangedListeners = function () {
+    var variables = this.getPageVariables();
+    for (var i = 0; i < variables.length; i++) {
+      var variable = variables[i];
+      variable.deatchOnValueChanged(this.handleVariableChange);
+    }
+  };
+
+  /**
+   * @protected
+   * This function gets called when tag finally finishes its normal processing.
+   * This is the function that attaches variables listeners with
+   * `this.attachVariablesChangedListeners()`.
+   */
+  BaseTag.prototype._markFinished = function () {
+    this.log.FINE("Marked finished."); /*L*/
+    BaseTag.SUPER.prototype._markFinished.call(this);
+    this.attachVariablesChangedListeners();
+  };
+  
 }());

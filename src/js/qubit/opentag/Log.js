@@ -1,10 +1,11 @@
-/*NO LOG*/
 //:import qubit.Define
+//:import qubit.Cookie
+
 /* jshint white: false */
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
@@ -19,8 +20,55 @@
    * 
    * #Logging class
    * 
-   * ALWAYS USE LOGGER IN A SEPARATE LINES. Lines containing logger 
-   * may be deleted by compression process.
+   * Logger class with ability of grouping messages at many levels, there is six
+   * possible logging levels:
+   * 
+   * Log.LEVEL_FINEST
+   * Log.LEVEL_FINE
+   * Log.LEVEL_INFO
+   * Log.LEVEL_WARN
+   * Log.LEVEL_ERROR
+   * Log.LEVEL_NONE
+   * 
+   * The list above is ordered from highest level to lowest - the highest 
+   * level is LEVEL_FINEST and lowest is LEVEL_NONE 
+   * (lowest level is equal to 0 and causes no logs being shown).
+   * 
+   * By default TagSDK sets loggin level to LEVEL_FINE while in debug mode,
+   * if TagSDK is not in debug mode - level is set to lowest value.
+   * 
+   * To adjust system logging output choose from Log.LEVEL_* properties.
+   * 
+   * Example:
+    
+         qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_FINEST);
+
+   * will enable all logs to 
+   * be at output.
+   
+         qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_NONE);
+  
+   * will disable any logs.
+   * 
+   * All log levels:
+    
+        Log.LEVEL_FINEST = 4;
+        Log.LEVEL_FINE = 3;
+        Log.LEVEL_INFO = 2;
+        Log.LEVEL_WARN = 1;
+        Log.LEVEL_ERROR = 0;
+        Log.LEVEL_NONE = -1;
+    
+    
+   * 
+   * It is recommended to use logger in single lines as lines containing logger 
+   * may be deleted by compression process in some cases.
+   * 
+   * Note that setting level does not change logs collection level, if logs are 
+   * not collected at certain level they will not be logged. to set collection 
+   * and logging at same level use `Log.setCollectAndLevel(level)` function.
+   * 
+   * Default logs collection level is set to LEVEL_FINE.
    * 
    * @param prefix {String} typical prefix to be used for each logger instance
    * @param clazz {Object} class object or function returning special
@@ -108,9 +156,31 @@
   Log.prototype.MAX_LOG_LEN = -1;
   
   var LEVEL = Log.LEVEL_NONE;
-  LEVEL = Log.LEVEL_INFO;/*D*///line deleted during merge
-  var COLLECT_LEVEL = Log.LEVEL_FINE;
+  LEVEL = Log.LEVEL_INFO;/*D*/ // line deleted during merge
+  
+  var COLLECT_LEVEL = Log.LEVEL_NONE;
+  COLLECT_LEVEL = Log.LEVEL_FINE; /*D*/
+  
   var COLLECT = true;
+  
+  /**
+   * Function is called by default on each framework load to check if loggin 
+   * level is set in cookie.
+   */
+  Log.setLevelFromCookie = function () {
+    var cookieLevel = qubit.Cookie.get("qubit.opentag.Log.LEVEL");
+  
+    if (cookieLevel) {
+      cookieLevel = +cookieLevel;
+      if (!isNaN(cookieLevel)) {
+        if (cookieLevel > 0) {
+          var fine = Log.LEVEL_FINE;
+          Log.setCollectLevel((cookieLevel > fine) ? cookieLevel : fine);
+          Log.setLevel(+cookieLevel);
+        }
+      }
+    }
+  };
   
   /**
    * Global setter to indicate if logs should be collected (memorised).
@@ -140,32 +210,18 @@
   };
   
   /**
+   * Global logger level setter.
+   * @param {Number} level one of qubit.opentag.Log.LEVEL_* properties
+   */
+  Log.setCollectAndLevel = function (level) {
+    Log.setLevel(level);
+    Log.setCollectLevel(level);
+  };
+  
+  /**
    * 
    * `Log.getLevel()` getter/setter is used to controll globally current and 
    * default logging levels.
-   * Choose from Log.LEVEL_* properties to adjust system logging output.
-   * 
-   * Example:
-    
-         qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_FINEST);
-
-   *  will enable all logs to 
-   * be at output.
-   
-         qubit.opentag.Log.setLevel(qubit.opentag.Log.LEVEL_NONE);
-  
-   * will disable any logs.
-   * 
-   * All log levels:
-    
-        Log.LEVEL_FINEST = 4;
-        Log.LEVEL_FINE = 3;
-        Log.LEVEL_INFO = 2;
-        Log.LEVEL_WARN = 1;
-        Log.LEVEL_ERROR = 0;
-        Log.LEVEL_NONE = -1;
-    
-    
    * @returns {Number} current level, one of qubit.opentag.Log.LEVEL_* 
    *   properties
    */
@@ -207,6 +263,8 @@
   Log.logsCollection = collection;
   
   /**
+   * @static
+   * 
    * Function will cause re-printing all of the logs that were collected.
    * Collection mechanism has it's own LEVEL configuration same
    * as plain logging in console.
@@ -259,22 +317,25 @@
         }
       }
     } catch (ex) {
-      //for sanity
+      // for sanity
     } finally {
       LEVEL = oldLevel;
     }
   };
   
-  var _ssupported = !!Define.global().webkitURL;
+  // check if webkit or mozilla is present, for styling loos choice is fine
+  var tmp = Define.global();
+  var isStylingSupported = 
+    !!(tmp.webkitMediaStream || tmp.webkitURL || tmp.mozContact);
   /**
    * Use styling by default.
    * @returns {Boolean}
    */
   Log.isStyleSupported = function () {
-    return _ssupported;
+    return isStylingSupported;
   };
   
-  //dummy for now
+  // dummy for now
   var altConsole = {};
   /**
    * 
@@ -315,11 +376,11 @@
       var delay = Log.delayPrint;
       var ago = _last_run - new Date().valueOf();
       if (ago > 0) {
-        //_count_close_msgs meassures how many times print was called in
-        //lower than default scale
+        // _count_close_msgs meassures how many times print was called in
+        // lower than default scale
         delay += ago;
       }
-      try { //try delayed option, if package exists
+      try { // try delayed option, if package exists
         qubit.opentag.Timed.setTimeout(function () {
           this.print(message, style, type, level);
         }.bind(this), delay);
@@ -354,7 +415,7 @@
    * @param {Number} level number
    */
   Log.print = function (message, style, type, level) {
-    //pre-eliminary step
+    // pre-eliminary step
     if (level !== undefined && LEVEL < level) {
       return;
     }
@@ -375,7 +436,7 @@
         }
       }
     } catch (ex) {
-      //swollow...
+      // swollow...
     }
   };
   
@@ -505,7 +566,7 @@
     }
   }
   
-  //it is important it is not in one line. New build will strip logs for release
+  // it is important it is not in one line. New build will strip logs for release
   /**
    * @method
    * Finest level logging function.
@@ -583,4 +644,6 @@
     };
     
   Log.setConsole(Define.global().console);
+  Log.setLevelFromCookie();
+   
 }());

@@ -20,7 +20,7 @@
    * @param {Object} config empty object.
    */
   function Events(config) {
-    this.log = new qubit.opentag.Log("Events -> ");
+    this.log = new qubit.opentag.Log("Events -> ");/*L*/
     this.calls = {};
   }
   
@@ -35,20 +35,23 @@
    *        -1 if added at end of queue.
    */
   Events.prototype.on = function (name, call) {
-    this.calls[name] = this.calls[name] || [];
+    if (!this.calls[name]) {
+      this.calls[name] = [];
+    }
     return Utils.addToArrayIfNotExist(this.calls[name], call);
   };
   
   /**
    * Function will cause triggering event for given name.
    * @param {String} name Event name
+   * @param {Object} event Event object
    */
-  Events.prototype.call = function (name) {
+  Events.prototype.call = function (name, event) {
     var calls = this.calls[name];
     if (calls) {
       for (var i = 0; i < calls.length; i++) {
         try {
-          calls[i]();
+          calls[i](event);
         } catch (ex) {
           this.log.ERROR("Error while running event: " + ex);/*L*/
         }
@@ -63,7 +66,10 @@
    * @returns {undefined}
    */
   Events.prototype.remove = function (name, call) {
-    return Utils.removeFromArray(this.calls[name], call);
+    if (this.calls[name]) {
+      return Utils.removeFromArray(this.calls[name], call);
+    }
+    return null;
   };
   
   /**
@@ -79,6 +85,13 @@
       }
     }
     return total;
+  };
+  
+  /**
+   * Removes all events of any type from this stack.
+   */
+  Events.prototype.clear = function () {
+    this.calls = {};
   };
   
   Define.clazz("qubit.Events", Events);

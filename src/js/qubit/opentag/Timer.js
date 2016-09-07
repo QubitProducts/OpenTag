@@ -3,13 +3,13 @@
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
 
 (function () {
-  var log = new qubit.opentag.Log("Timer -> ");
+  var log = new qubit.opentag.Log("Timer -> ");/*L*/
 
   /**
    * #Timer implementation.

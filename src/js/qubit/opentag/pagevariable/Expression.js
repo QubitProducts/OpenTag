@@ -4,7 +4,7 @@
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
@@ -50,34 +50,41 @@
   Expression.prototype.getValue = function () {
     var ret;
     var error;
+    var value = this.value;
     try {
-      if (this.value.indexOf("[#]") === -1) {
-        var tmp = Utils.gevalAndReturn(this.value);
+      if (value && value.indexOf("[#]") === -1) {
+        var tmp = Utils.gevalAndReturn(value);
         ret = tmp.result;
         this.failMessage = null;
         error = tmp.error;
       } else {
-        ret = Expression.parseUVArray(this.value);
+        ret = Expression.parseUVArray(value);
       }
     } catch (e) {
       error = e;
     }
     if (error) {
-      var msg = "could not read value of expression: \n" + this.value +
+      var msg = "could not read value of expression: \n" + value +
               "\nexact cause: " + error;
       if (this.failMessage !== msg) {
         this.failMessage = msg;
       }
       ret = null;
     }
+    
+    var differs = this._updateCurrentValue(ret);
+    
     /*log*/
-    Timed.maxFrequent(function () {
-      if (this.failMessage) {
-        this.log.FINEST(this.failMessage);/*L*/
-      }
-      this.log.FINEST("getting value from expression: " + ret);/*L*/
-    }.bind(this), 10000, this._lockExprObject);
+    if (differs) {
+      Timed.maxFrequent(function () {
+        if (this.failMessage) {
+          this.log.FINEST(this.failMessage);/*L*/
+        }
+        this.log.FINEST("getting value from expression: " + ret);/*L*/
+      }.bind(this), 10000, this._lockExprObject);
+    }
     /*~log*/
+    
     return ret;
   };
   
@@ -121,7 +128,7 @@
     if ((this.getValue() instanceof Array)) {
       exp = true;
     }
-    //UV case! this is a hack abit - copied logic from origins
+    // UV case! this is a hack abit - copied logic from origins
     return Expression.SUPER.prototype
        .replaceToken.call(this, token, string, altValue, exp);
   };

@@ -18,7 +18,6 @@
    * /Global_Objects/Function/bind
    * 
    */
-  //bind check:
   if (!Function.prototype.bind) {
     Function.prototype.bind = function (oThis) {
       if (typeof this !== 'function') {

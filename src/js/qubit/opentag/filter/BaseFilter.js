@@ -4,7 +4,7 @@
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
@@ -40,11 +40,10 @@
    * @param config {Object} config object used to build instance
    */
   function BaseFilter(config) {
-    /*log*/
+    
     this.log = new qubit.opentag.Log("", function () {
       return this.CLASS_NAME + "[" + this.config.name + "]";
     }.bind(this), "collectLogs");
-    /*~log*/
 
     this.config = {
       /**
@@ -108,7 +107,7 @@
    *     {
    *        DISABLED: -3,
    *        SESSION: -2,
-   *        PASS: -1, //positive numbers are used for timeout
+   *        PASS: -1, // positive numbers are used for timeout
    *        FAIL: 0
    *     }; 
    * 
@@ -118,7 +117,7 @@
   BaseFilter.state = {
     DISABLED: -3,
     SESSION: -2,
-    PASS: -1, //positive numbers are used for timeout
+    PASS: -1, // positive numbers are used for timeout
     FAIL: 0
   };
 

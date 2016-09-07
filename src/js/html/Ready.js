@@ -43,7 +43,7 @@
   };
   
 
-  //The DOM ready check for Internet Explorer
+  // The DOM ready check for Internet Explorer
   doScrollCheck = function () {
     if (isReady) {
       return;
@@ -109,7 +109,7 @@
     }
   };
   
-  //Handle when the DOM is ready
+  // Handle when the DOM is ready
   q.html.ready = function (fn) {
     // Attach the listeners
     bindReadyComplete();
@@ -122,7 +122,7 @@
     }
   };
   
-  //Cleanup functions for the document ready method
+  // Cleanup functions for the document ready method
   if (document.addEventListener) {
     DOMContentLoaded = function () {
       document.removeEventListener("DOMContentLoaded", 

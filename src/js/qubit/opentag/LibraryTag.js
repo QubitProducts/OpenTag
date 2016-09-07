@@ -5,13 +5,14 @@
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
 
 (function () {
   var Utils = qubit.opentag.Utils;
+  var Define = qubit.Define;
   
   /**
    * #Library tag instance class.
@@ -97,7 +98,15 @@
      * @cfg {String} [parameters=null]
      */
     parameters: [
-    ]
+    ],
+    /**
+     * @protected
+     * Compatibility property used internally. It causes running pre post bodies
+     * in a window scope - it is recommended to always run them in normal scope.
+     * This property is mostly used with old tags that were run in window scope.
+     * @cfg {Boolean} [prePostWindowScope=false]
+     */
+    prePostWindowScope: false
   };
   
   /**
@@ -120,24 +129,30 @@
     expr = expr.replace(/\s*function\s*\([\w\s,_\d\$]*\)\s*\{/, "");
     expr = expr.substring(0, expr.lastIndexOf("}"));
     
+    // ""+_this.val...'
     expr = expr.replace(
-      /(["']\s*\+\s*)\s*_*this\s*\.\s*valueForToken\s*\(\s*'([^']*)'\s*\)/g,
+      /(["']\s*\+\s*)\s*_*\w+\s*\.\s*valueForToken\s*\(\s*'([^']*)'\s*\)/g,
       "$1\"${$2}\"");
     expr = expr.replace(
-      /\s*_*this\s*\.\s*valueForToken\s*\(\s*'([^']*)'\s*\)(\s*\+\s*["'])/g,
+      /\s*_*\w+\s*\.\s*valueForToken\s*\(\s*'([^']*)'\s*\)(\s*\+\s*["'])/g,
       "\"${$1}\"$2");
     
+    // ""+_this.val..."
     expr = expr.replace(
-      /(["']\s*\+\s*)\s*_*this\s*\.\s*valueForToken\s*\(\s*"([^"]*)"\s*\)/g,
+      /(["']\s*\+\s*)\s*_*\w+\s*\.\s*valueForToken\s*\(\s*"([^"]*)"\s*\)/g,
       "$1\"${$2}\"");
     expr = expr.replace(
-      /\s*_*this\s*\.\s*valueForToken\s*\(\s*"([^"]*)"\s*\)(\s*\+\s*["'])/g,
+      /\s*_*\w+\s*\.\s*valueForToken\s*\(\s*"([^"]*)"\s*\)(\s*\+\s*["'])/g,
       "\"${$1}\"$2");
     
-    expr = expr.replace(/\s*_*this\s*\.\s*valueForToken\s*\(\s*'([^']*)'\s*\)/g,
-      "${$1}");
-    expr = expr.replace(/\s*_*this\s*\.\s*valueForToken\s*\(\s*"([^"]*)"\s*\)/g,
-      "${$1}");
+    // _this.val..."'
+    expr = expr.replace(
+      /(\s*)_*\w+\s*\.\s*valueForToken\s*\(\s*'([^']*)'(\s*)\)/g,
+      "$1${$2}$3");
+    expr = expr.replace(
+      /(\s*)_*\w+\s*\.\s*valueForToken\s*\(\s*"([^"]*)"(\s*)\)/g,
+      "$1${$2}$3");
+    
     expr = tag.replaceTokensWithValues(expr);
     Utils.geval(expr);
   }
@@ -149,11 +164,11 @@
   LibraryTag.prototype.before = function () {
     LibraryTag.SUPER.prototype.before.call(this);
     
-    if (this.getHtml() || this.config.script) {
-      this.log.FINE("html or config.script is set while using pre." +/*L*/
-              " Cancelling running pre.");/*L*/
-      return false;//continue normally
-    }
+//    if (this.getHtml() || this.config.script) {
+//      this.log.FINE("html or config.script is set while using pre." +/*L*/
+//              " Cancelling running pre.");/*L*/
+//      return false;// continue normally
+//    }
     
     this.log.INFO("Running PRE script execution...");/*L*/
     try {
@@ -176,7 +191,7 @@
     } catch (ex) {
       this.log.ERROR(/*L*/
         this.config.name + " exception while running pre: " + ex);/*L*/
-      return true;//cancel running 
+      return true;// cancel running 
     }
     return false;
   };
@@ -188,11 +203,11 @@
    */
   LibraryTag.prototype.after = function (success) {
     LibraryTag.SUPER.prototype.after.call(this, success);
-    if (this.getHtml() || this.config.script) {
-      this.log.WARN("html or config.script is set while using post." +/*L*/
-              " Cancelling running post.");/*L*/
-      return;
-    }
+//    if (this.getHtml() || this.config.script) {
+//      this.log.WARN("html or config.script is set while using post." +/*L*/
+//              " Cancelling running post.");/*L*/
+//      return;
+//    }
     
     this.log.INFO("Running POST script execution...");/*L*/
     try {
@@ -214,7 +229,7 @@
       }
     } catch (ex) {
       this.log.ERROR(/*L*/
-        this.config.name + " exception while running pre: " + ex);/*L*/
+        this.config.name + " exception while running post: " + ex);/*L*/
     }
   };
   
@@ -248,9 +263,9 @@
       .replace(/[\.]+$/g, "")
       .replace(/\.+/g, ".");
     
-    namespace = qubit.Define.vendorsSpaceClasspath() + "." + namespace;
+    namespace = qubit.Define.vendorsSpaceClasspath(namespace);
     
-    //config must be set in runtime - for each instance
+    // config must be set in runtime - for each instance
     var libraryDefaultConfig = {};
     
     if (libConfig.getDefaultConfig) {
@@ -259,7 +274,7 @@
     
     var constr = libConfig.CONSTRUCTOR;
     
-    //prepare new config that does not override .config object in Library class
+    // prepare new config that does not override .config object in Library class
     var prototypeTemplate = {};
    
     for (var prop in libConfig) {
@@ -268,17 +283,17 @@
       }
     }
     
-    //add new constructor
+    // add new constructor
     var constructor = function (cfg) {
-      //update instance properties for new defaults
+      // update instance properties for new defaults
       cfg = cfg || {};
-      cfg = Utils.overrideFromBtoA(libraryDefaultConfig, cfg);
+      cfg = Utils.overrideFromLeftToRight(libraryDefaultConfig, cfg);
       
       // --- standard ---
-      //run library standard constructor
+      // run library standard constructor
       var ret = qubit.opentag.LibraryTag.call(this, cfg);
       
-      //any additional constructor? run it.
+      // any additional constructor? run it.
       if (constr) {
         constr.call(this, cfg);
       }
@@ -291,8 +306,10 @@
     var ret = qubit.opentag.Utils.defineWrappedClass(
       namespace, LibraryTag, prototypeTemplate, GLOBAL, constructor);
     
-    if (namespace.indexOf("qubit.vs.") !== 0) {
-      Utils.namespace("qubit.vs." + namespace, ret);
+    var ns = Define.STANDARD_VS_NS + ".";
+    // make sure standard ns is always set
+    if (namespace.indexOf(ns) !== 0) {//
+      Utils.namespace(ns + namespace, ret);
     }
     
     return ret;

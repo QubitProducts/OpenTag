@@ -173,9 +173,9 @@
     var i = 0;
     for (i = 0; i < uv.events.length; i += 1) {
       if (!uv.events[i].has_fired) {
-        //Event hasn't fired, re-insert it now that push is redefined.
+        // Event hasn't fired, re-insert it now that push is redefined.
         UVListener.unfired_events.push(uv.events.splice(i, 1)[0]);
-        i -= 1; //The remaining events have shifted backward.
+        i -= 1; // The remaining events have shifted backward.
       }
     }
   };

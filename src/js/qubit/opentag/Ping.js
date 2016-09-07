@@ -6,7 +6,7 @@
 
 (function () {
   
-  var log = new qubit.opentag.Log("Ping -> ");
+  var log = new qubit.opentag.Log("Ping -> ");/*L*/
   
   /**
    * #Ping processing class.
@@ -39,11 +39,11 @@
       var loadTime = loadTimes[i].loadTime;
       
       if (loadTime === null || isNaN(loadTime)) {
-        //ignore unset load time entries.
+        // ignore unset load time entries.
         continue;
       }
       
-      var loaderId = tag.config.id;
+      var loaderId = Ping.getPingID(tag);
       
       if (!tag.pingSent && loaderId && loadTime !== null) {
         if (loaderId !== undefined) {
@@ -62,7 +62,7 @@
       }
     }
         
-    //sending part
+    // sending part
     if (config.pingServerUrl && pingStrings.length > 0) {
       pingString += encodeURIComponent("{" + pingStrings.join(',') + "}");
       var url = "//" + config.pingServerUrl + "/tag2?" + pingString;
@@ -130,7 +130,7 @@
 
     for (var i = 0; i < tags.length; i++) {
       var tag = tags[i];
-      var loaderId = tag.config.id;
+      var loaderId = Ping.getPingID(tag);
 
       if (loaderId === undefined) {
         log.WARN("sendDedupe: tag `" + tag.config.name +/*L*/
@@ -153,6 +153,19 @@
       if (!config.pingServerUrl) {
         log.WARN("sendDedupe: config.pingServerUrl is unset!");/*L*/
       }
+    }
+  };
+  
+  Ping.getPingID = function (tag) {
+    if (tag.config.id) {
+      return tag.config.id;
+    }
+    
+    var idx = tag.PACKAGE_NAME.lastIndexOf(".");
+    if (idx !== -1) {
+      return tag.PACKAGE_NAME.substring(idx + 1);
+    } else {
+      return tag.PACKAGE_NAME;
     }
   };
   

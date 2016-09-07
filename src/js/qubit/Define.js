@@ -1,8 +1,10 @@
+/* global GLOBAL */
+
 //:import GLOBAL
 
 /*
  * Opentag, a tag deployment platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
@@ -30,11 +32,13 @@
     return GLOBAL;
   };
 
+  // keep those next to each other
+  Define.STANDARD_CS_NS = "qubit.cs";
   Define.clientSpaceClasspath = function () {
     if (window.qubit.CLIENT_CONFIG) {
       return "qubit.cs.d" + window.qubit.CLIENT_CONFIG.id;
     }
-    return "qubit.cs";
+    return Define.STANDARD_CS_NS;
   };
 
   /**
@@ -71,7 +75,7 @@
 
   function _namespace(path, instance, pckg, noOverride, isGlobal) {
     var files = path.split("."),
-      //access eval INDIRECT so it is called globally
+      // access eval INDIRECT so it is called globally
       current = Define.NAMESPACE_BASE || PKG_ROOT,
       last = null,
       lastName = null,
@@ -97,6 +101,10 @@
     
     if (GLOBAL.TAGSDK_NS_OVERRIDE) {
       noOverride = false;
+    }
+    
+    if (GLOBAL.TAGSDK_NS_FORCED_OVERRIDE_OPTION !== undefined) {
+      noOverride = !GLOBAL.TAGSDK_NS_FORCED_OVERRIDE_OPTION;
     }
     
     if (instance !== undefined) {
@@ -159,8 +167,8 @@
   Define.clazz = function (path, Class, SuperClass, pckg, config) {
     Define.namespace(path, Class, pckg, true);
     if (typeof(SuperClass) === "function") {
-      Class.SUPER = SuperClass;//also used by Utils.defineWrappedClass
-      Class.superclass = SuperClass; //deprecated use SUPER
+      Class.SUPER = SuperClass;// also used by Utils.defineWrappedClass
+      Class.superclass = SuperClass; // deprecated use SUPER
       Class.prototype = new SuperClass(config);
       Class.prototype.SUPER = SuperClass;
       Class.prototype.CLASS = Class;
@@ -207,29 +215,43 @@
       config);
   };
   
-  Define.vendorsSpaceClasspath = function () {
+  Define.STANDARD_VS_NS = "qubit.vs";
+  
+  Define.vendorsSpaceClasspath = function (path) {
     var cp = qubit.VENDOR_SPACE_CP;
-    return (cp === undefined || cp === null) ? "qubit.vs" : cp;
+    var result = (cp === undefined || cp === null) ? Define.STANDARD_VS_NS : cp;
+    
+    if (path) {
+      if (result) {
+        return result + "." + path;
+      } else {
+        return path;
+      }
+    }
+    
+    return result;
   };
   
-  var _vspace = 
-    Define.namespace(Define.vendorsSpaceClasspath(), {}, null, true).instance;
+  var nsTmp = Define.vendorsSpaceClasspath();
+  var _vspace;
+  
+  if (nsTmp) {
+    _vspace = Define.namespace(nsTmp, {}, null, true).instance;
+  } else {
+    _vspace = Define.global();
+  }
   
   Define.getVendorSpace = function () {
     return _vspace;
   };
   
   Define.vendorNamespace = function (path, instance, pckg, noOverride) {
-    return Define.namespace(
-      Define.vendorsSpaceClasspath() + "." + path, instance, pckg, noOverride);
+    path = Define.vendorsSpaceClasspath(path);
+    return Define.namespace(path, instance, pckg, noOverride);
   };
   
   Define.vendorClazz = function (path, Class, SuperClass, pckg, config) {
-    return Define.clazz(
-      Define.vendorsSpaceClasspath() + "." + path,
-      Class,
-      SuperClass,
-      pckg,
-      config);
+    path = Define.vendorsSpaceClasspath(path);
+    return Define.clazz(path, Class, SuperClass, pckg, config);
   };
 }());

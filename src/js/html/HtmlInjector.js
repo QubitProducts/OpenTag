@@ -4,7 +4,7 @@
 //= require <html/GlobalEval>
 /*global escape, unescape*/
 
-//this is quite redundant package, simpler method can be used
+// this is quite redundant package, simpler method can be used
 
 q.html.HtmlInjector = {};
 
@@ -12,12 +12,12 @@ q.html.HtmlInjector.inject = function (el, injectStart, str, cb, parentNode) {
   var i, ii, d, scriptsRaw, scripts, script, contents;
   if (str.toLowerCase().indexOf("<script") >= 0) {
     d = document.createElement("div");
-    //In IE, if you don't put a char here and the only thing the HTML contains
-    //is a script element, the inner html doesn't get set.
+    // In IE, if you don't put a char here and the only thing the HTML contains
+    // is a script element, the inner html doesn't get set.
     d.innerHTML = "a" + str;
     scriptsRaw = d.getElementsByTagName("script");
-    //Make copy of the raw array that is given by the browser, as the
-    //raw array changes as the dom changes.
+    // Make copy of the raw array that is given by the browser, as the
+    // raw array changes as the dom changes.
     scripts = [];
     for (i = 0, ii = scriptsRaw.length; i < ii; i += 1) {
       scripts.push(scriptsRaw[i]);
@@ -34,18 +34,18 @@ q.html.HtmlInjector.inject = function (el, injectStart, str, cb, parentNode) {
         s.script = script.innerHTML;
       }
       contents.push(s);
-      //Note: this line changes the length of scriptsRaw.
+      // Note: this line changes the length of scriptsRaw.
       script.parentNode.removeChild(script);
     }
     if (d.innerHTML) {
-      //Remove first character in the html, put in above
+      // Remove first character in the html, put in above
       if (d.innerHTML.length > 0) {
         d.innerHTML = d.innerHTML.substring(1);
       }
     }
     q.html.HtmlInjector.doInject(el, injectStart, d);
     q.html.HtmlInjector.loadScripts(contents, 0, cb, el);
-    //use document fragments if adding to multiple elements!
+    // use document fragments if adding to multiple elements!
   } else {
     d = document.createElement("div");
     d.innerHTML = str;

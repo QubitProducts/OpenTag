@@ -2,7 +2,7 @@
 //:import qubit.compression.LZW
 
 (function () {
-  //mex is manual "hex"
+  // mex is manual "hex"
   
   var mex = "abcdefghijklmnopqrstuvwxyz" + "0123456789" + "'%./:<>?[";
   var Umex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "*!-+()@{|}" + "\"]^_`~$&#";

@@ -7,7 +7,7 @@
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
@@ -87,7 +87,7 @@
    */
   URLFilter.prototype.match = function (url) {
     url = this.getURL(url);
-    var match = true; //be optimist
+    var match = true; // be optimist
     var pattern = this.config.pattern;
     
     switch (this.config.patternType) {

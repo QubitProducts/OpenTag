@@ -5,13 +5,13 @@
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2013-2014, Qubit Group
+ * Copyright 2013-2016, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
 
 (function () {
-  var Timed = qubit.opentag.Timed;
+  var Timed = qubit.opentag.Timed;/*L*/
 
   
   /**
@@ -42,9 +42,14 @@
    */
   Cookie.prototype.getValue = function () {
     var val = qubit.Cookie.get(this.value);
+    
+    /*log*/
     Timed.maxFrequent(function () {
-      this.log.FINEST("reading cookie value: " + val);/*L*/
+      this.log.FINEST("reading cookie value: " + val);
     }.bind(this), 2000, this._lockObject);
+    /*~log*/
+    
+    this._updateCurrentValue(val);
     return val;
   };
   

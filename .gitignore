@@ -1,1 +1,31 @@
-build
+# Compiled source #
+###################
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+rebel.xml
+.nb-gradle/
+.gradle/
+build/
+dist/
+*.iml
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+#why icon ??? Icon?
+ehthumbs.db
+Thumbs.db
+rebel.xml
+.idea
+
+!/.gitignore
+private/
+

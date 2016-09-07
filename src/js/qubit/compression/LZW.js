@@ -1,21 +1,21 @@
 //:import qubit.Define
 
-////Author Peter Fronc
+// Author Peter Fronc
 // UTF supported.
 
 
 (function () {
 
   var defaultAlphabet = [];
-  //"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ~_.-*()'!%"
-  //.split("");//[];
+  // "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ~_.-*()'!%"
+  // .split("");//[];
 
-  var len = Math.pow(2, 8);//256
+  var len = Math.pow(2, 8);// 256
   for (var c = 0; c < len; c++) {
     defaultAlphabet.push(String.fromCharCode(c));
   }
 
-//dictionary
+// dictionary
   var xdict = {};
   for (var i = 0; i < defaultAlphabet.length; i++) {
     xdict[defaultAlphabet[i]] = i;
@@ -103,30 +103,30 @@
     var results = [prevChar];
 
     for (var i = 1; i < codes.length; i++) {
-      //recovering encoding, we must get chunk and add dictionary word
+      // recovering encoding, we must get chunk and add dictionary word
       var currentCode = codes[i];
       chunk = getFromDict(currentCode, dict);
 
       if (chunk === null) {
-        //well, check if in recovered dictionary
+        // well, check if in recovered dictionary
         if (locdict.hasOwnProperty(currentCode)) {
           chunk = locdict[currentCode];
         }
         if (chunk === null) {
-          //if not in both, but we know it had to be there, means
-          //was added in "last step" - so it is last word + the character
+          // if not in both, but we know it had to be there, means
+          // was added in "last step" - so it is last word + the character
           //
           chunk = prevChunk + prevChar;
         }
       }
-      //add chunk
+      // add chunk
       results.push(chunk);
 
-      //add dictionary asssigned
-      //previous char now is known, its current chunk first char (previous
-      //chunk when added, added dictionary word, we add it now, step later)
+      // add dictionary asssigned
+      // previous char now is known, its current chunk first char (previous
+      // chunk when added, added dictionary word, we add it now, step later)
       prevChar = chunk.charAt(0);
-      //recreate dict
+      // recreate dict
       locdict[dictSize++] = prevChunk + prevChar;
       prevChunk = chunk;
     }

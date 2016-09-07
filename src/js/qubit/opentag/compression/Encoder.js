@@ -5,12 +5,12 @@
   var Define = qubit.Define;
   var Cookie = qubit.Cookie;
   
-  //order matters!
-  //make sure that replacement char does not equal to first character of
-  //any coded words!
-  //Escape character used in encoder: *
-  //exclude also: _, N, +, *, T, Q staring from - or number
-  //number dash codes are SPECIAL.
+  // order matters!
+  // make sure that replacement char does not equal to first character of
+  // any coded words!
+  // Escape character used in encoder: *
+  // exclude also: _, N, +, *, T, Q staring from - or number
+  // number dash codes are SPECIAL.
   var definitions = [
     ['","referrer":[{"url":"http://', "1-"],
     ['","referrer":[{"url":"https://', "2-"],
@@ -142,8 +142,8 @@
       ret = ret.replace(pair[0], pair[1]);
     }
     
-    //a must section, normally first, but ist safer to do it fater dictionary as
-    //can be changed by developer.
+    // a must section, normally first, but ist safer to do it fater dictionary as
+    // can be changed by developer.
     // @TODO move those to the dictionary... 
     ret = ret.replace(/;/g, "*-");
     ret = ret.replace(/&/g, "*.");
@@ -154,12 +154,12 @@
     ret = ret.replace(/\t/g, "*T");
     ret = ret.replace(/"/g, "*Q");
     
-    //test server with
+    // test server with
     // document.cookie=
     // 'x="abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ' + 
     // '*!-#$+()@\'%./:<>?[]^_`{|}~"'
      
-    //start searching for interesting keywords now
+    // start searching for interesting keywords now
     var ddict = dynamicDictionary(ret);
     ddict.concat(ininitalDdict);
     // actually space is fine, just trimming occurs
@@ -173,7 +173,7 @@
       ret = result[0];
     }
     
-    //utf section
+    // utf section
     if (!limitUTFRange) {
       ret = replaceWithUTFEncoding(ret);
     } else {
@@ -212,7 +212,7 @@
     string = string.replace(/@/g, "@@");
     var dict = [];
     for (var i = 0, j = 0; i < ddict.length; i++) {
-      //new regex is expensive operation
+      // new regex is expensive operation
       var pattern = ddict[i][0];
       var rx = new RegExp(escapeRegExp(pattern), 'g');
       var out = string.replace(rx, "@" + j + "-");
@@ -229,7 +229,7 @@
     return string.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1");
   }
   
-  //"abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ*-+@./_"
+  // "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ*-+@./_"
   var dynamicDictChars = 
     "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ+_.";
   var dynamicDictCharsMap = {};
@@ -263,7 +263,7 @@
       }
     }
     // @todo, make this function more sophisticated, use multiple + one word len
-    //instead of just len
+    // instead of just len
     dict = dict.sort(function (a, b) {
       if (a[0].length === b[0].length) {
         return 0;
@@ -294,7 +294,7 @@
         ddict = string.substring(1, qMkIdx);
         ddict = ddict.split("*");
         string = string.substring(qMkIdx + 1);
-        //decode only if there was dynamic encoding
+        // decode only if there was dynamic encoding
         string = decodeDynamicDictionary(string, ddict);
       }
     }
@@ -314,16 +314,16 @@
             utfNum = utfNum + ch;
             collectingNum = true;
           } else if (collectingNum) {
-            //was collecting number  till now
+            // was collecting number  till now
             if (ch === ".") {
-              //utf case
+              // utf case
               ret += String.fromCharCode(+utfNum);
             } else if (ch === "-" &&
                     getDefinitionByChar(utfNum + "-", this._defs)) {
-              //ext dict case
+              // ext dict case
               ret += getDefinitionByChar(utfNum + "-", this._defs);
             } else {
-              //unrecognised, dump as was
+              // unrecognised, dump as was
               ret += "*" + utfNum + ch;
             }
             utfNum = "";
@@ -347,11 +347,11 @@
           } else if (ch === "Q") {
             ret += "\"";
           } else if (getDefinitionByChar(ch, this._defs) !== null) {
-            //any other chars are in the dictionary
+            // any other chars are in the dictionary
             var def = getDefinitionByChar(ch, this._defs);
             ret += def;
           } else {
-            //unrecognised! dump as was
+            // unrecognised! dump as was
             ret += "*" + ch;
           }
         } else {
@@ -362,17 +362,17 @@
       }
     }
     if (utfNum) {
-      //last utfNum collection was uncleared! bring it back
+      // last utfNum collection was uncleared! bring it back
       ret += "*" + utfNum;
     }
     if (codeWord) {
-      //flush empty fflash
+      // flush empty fflash
       ret += "*";
     }
     return ret;
   };
   
-  //some cleanups needed.
+  // some cleanups needed.
   function decodeDynamicDictionary(string, ddict) {
     if (!ddict || ddict.length === 0 || !string) {
       return string;
@@ -397,16 +397,16 @@
           } else {
             if (collectingNum) {
               if (ddict && ch === "-" && ddict[+codeNum]) {
-                //dictionary code case
+                // dictionary code case
                 ret += ddict[+codeNum];
               } else {
-                //unrecognised, dump as is
+                // unrecognised, dump as is
                 ret += "@" + codeNum + ch;
               }
               codeNum = "";
               collectingNum = false;
             } else {
-              //not a code! dump as was
+              // not a code! dump as was
               ret += "@" + ch;
             }
           }
@@ -418,11 +418,11 @@
       }
     }
     if (codeNum) {
-      //last codeNum collection was uncleared! bring it back
+      // last codeNum collection was uncleared! bring it back
       ret += "@" + codeNum;
     }
     if (codeWord) {
-      //flush empty fflash
+      // flush empty fflash
       ret += "@";
     }
     return ret;
