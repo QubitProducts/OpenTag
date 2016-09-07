@@ -1,0 +1,5 @@
+}());} catch (e) {
+  try {
+    console.log(e);
+  } catch (ex) {}
+}
