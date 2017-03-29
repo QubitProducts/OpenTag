@@ -40,7 +40,7 @@
     "lastsemic" : "false",
     "laxbreak" : "false",
     "laxcomma" : "false",
-    "loopfunc" : "false",
+    "loopfunc" : "true",
     "multistr" : "false",
     "proto" : "false",
     "scripturl" : "false",

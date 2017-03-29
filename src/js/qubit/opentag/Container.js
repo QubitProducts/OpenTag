@@ -69,7 +69,7 @@
         maxCookieLength: 1000,
         delayDocWrite: true,
         name: "Container A",
-        tellLoadTimesProbability: true,
+        tellLoadTimesProbability: 1,
         trackSession: true
       });
   
@@ -186,7 +186,7 @@
       /**
        * @cfg {Boolean} [noPings=false] blocks pings.
        */
-      noPings: false
+      noPings: true
     };/*~CFG*/
     
     /**
@@ -667,7 +667,7 @@
     // try to send pings sooner than later
     Timed.setTimeout(function () {
       this.sendPingsNotTooOften();
-    }.bind(this), 1100);
+    }.bind(this), 3100);
     
     this.waitForAllTagsToFinish();
   };
@@ -1039,7 +1039,7 @@
    */
   Container.prototype.sendPings = function () {
     if (this.config.noPings) {
-      this.log.WARN("Pings are cancelled due to configuration.");/*L*/
+      this.log.FINEST("Pings are cancelled due to configuration.");/*L*/
       return;
     }
     
@@ -1053,16 +1053,16 @@
 //      locked: locked, (to be NOT sent)
 //      other: other filterReady, (to be set with callback)
       var results = this.getAllTagsByState();
-      var _this = this;
-      var loadTimes;
+      var loadTimes = [];
       
       if (results.run) {
         // send "just run" load times
         loadTimes = Tags.getLoadTimes(results.run);
-        this.log.INFO("Sending standard load pings");/*L*/
-        this.lastPingsSentTime = new Date().valueOf();
-        this.ping.send(this, loadTimes);
       }
+      
+      this.log.INFO("Sending standard load pings");/*L*/
+      this.lastPingsSentTime = new Date().valueOf();
+      this.ping.send(this, loadTimes);
       
       /*session*/
       // dedupe part:
@@ -1108,6 +1108,8 @@
         }
       }
       /*~session*/
+    } else {
+      this.ping.send(this, []);
     }
   };
   /*~no-send*/

@@ -7,6 +7,7 @@
 (function () {
   
   var log = new qubit.opentag.Log("Ping -> ");/*L*/
+  var appJsonCT = "text/plain;charset=UTF-8";
   
   /**
    * #Ping processing class.
@@ -19,20 +20,66 @@
   qubit.Define.clazz("qubit.opentag.Ping", Ping);
   
   /**
+   * Disabled. Function sends error information to servers.
+   * @private
+   * @param {Object} container
+   * @param {Object} errors
+   */
+  Ping.prototype.sendErrors = function (container, errors) {
+    // @TODO add on-demand errors sending so client can easily invoke 
+    //"qubut.opentag.Tags.sendAllErrors()
+    log.WARN("Errors sending is disabled.");/*L*/
+  };
+
+  /*session*/
+  
+  Ping.getPingID = function (tag) {
+    if (tag.config.id) {
+      return tag.config.id;
+    }
+    
+    var idx = tag.PACKAGE_NAME.lastIndexOf(".");
+    if (idx !== -1) {
+      return tag.PACKAGE_NAME.substring(idx + 1);
+    } else {
+      return tag.PACKAGE_NAME;
+    }
+  };
+  
+  function prepareContainerMsg(container, config) {
+    var msgObject = {};
+    
+    msgObject.clientId = "" + config.clientId;
+    msgObject.containerId = "" + container.getContainerId();
+    msgObject.classpath = "" + container.PACKAGE_NAME;
+    msgObject.opentagStats = true;
+    
+    if (container.sentPing) {
+      msgObject.containerLoad = false;
+    } else {
+      container.sentPing = new Date().valueOf();
+      msgObject.containerLoad = true;
+    }
+    
+    msgObject.isS3 = false;
+//    msgObject.tellLoadTimesProbability = "" + config.tellLoadTimesProbability;
+    msgObject.pageViewId = q.cookie.PageView.update();
+    
+    msgObject.tags = [];
+    
+    return msgObject;
+  }
+
+  /**
    * Function sends ping information to the servers.
    * @param {Object} container Container reference
    * @param loadTimes {Array} Array of load time elements [time, BaseTag]
    */
   Ping.prototype.send = function (container, loadTimes) {
     var config = container.config;
-    var pingString = 
-            "c=" + config.clientId + "&" +
-            "p=" + container.getContainerId() + "&" +
-            "l=" + config.tellLoadTimesProbability + "&" +
-            "pv=" + q.cookie.PageView.update() + "&" +
-            "d=";
-            
-    var pingStrings = [];
+    var msgObject = prepareContainerMsg(container, config);
+    var tagLogs = msgObject.tags;
+    var pingURL = config.pingServerUrl;
     
     for (var i = 0; i < loadTimes.length; i++) {
       var tag = loadTimes[i].tag;
@@ -43,11 +90,15 @@
         continue;
       }
       
-      var loaderId = Ping.getPingID(tag);
+      var tagMsg = {};
+      var tagID = Ping.getPingID(tag);
       
-      if (!tag.pingSent && loaderId && loadTime !== null) {
-        if (loaderId !== undefined) {
-          pingStrings.push('"' + loaderId + '":' + loadTime);
+      if (!tag.pingSent && tagID && loadTime !== null) {
+        if (tagID !== undefined) {
+          tagMsg.tagId = tagID;
+          tagMsg.loadTime = loadTime;
+          tagMsg.fired = true;
+          tagLogs.push(tagMsg);
           tag.pingSent = true;
         } else {
           log.WARN("send: tag `" + tag.config.name +/*L*/
@@ -63,56 +114,21 @@
     }
         
     // sending part
-    if (config.pingServerUrl && pingStrings.length > 0) {
-      pingString += encodeURIComponent("{" + pingStrings.join(',') + "}");
-      var url = "//" + config.pingServerUrl + "/tag2?" + pingString;
+    if (pingURL && (tagLogs.length > 0 || msgObject.containerLoad)) {
+      var pingString = JSON.stringify(msgObject);
+      var url = "//" + pingURL;
       log.FINE("send: sending pings " + url);/*L*/
-      q.html.PostData(url, null, "GET");
+      q.html.PostData(url, pingString, "POST", appJsonCT);
     } else {
-      if (!pingStrings.length) {
+      if (!tagLogs.length) {
         log.FINE("send: no pings to sent");/*L*/
       }
-      if (!config.pingServerUrl) {
-        log.WARN("send: config.pingServerUrl is unset!");/*L*/
+      if (!pingURL) {
+        log.WARN("send: pingURL is unset!");/*L*/
       }
     }
   };
   
-  /**
-   * Disabled. Function sends error information to servers.
-   * @private
-   * @param {Object} container
-   * @param {Object} errors
-   */
-  Ping.prototype.sendErrors = function (container, errors) {
-    // @TODO add on-demand errors sending so client can easily invoke 
-    //"qubut.opentag.Tags.sendAllErrors()
-    log.WARN("Errors sending is disabled.");/*L*/
-//    var config = container.config;
-//    var loaderId, err, msg, errMsgs = [];
-//    
-//    for (var i = 0; i < errors.length; i++) {
-//      var tag = errors[i];
-//      err = errors[loaderId];
-//      errMsgs.push("{r: '" + err.reason + "',u:'" + err.url + 
-//        "',l:'" + err.lineNumber + "'}");
-//    }
-//    if (errMsgs.length > 0) {
-//      log.INFO("about to send errors: " + errMsgs.join(","));/*L*/
-//
-//      msg = "c=" + config.opentagClientId + "&" + 
-//        "p=" + container.getContainerId() + "&" +
-//        "pv=" + q.cookie.PageView.update() + "&" +
-//        "e=" + ("[" + errMsgs.join(",") + "]");
-//      if (config.pingServerUrl) {
-//        q.html.PostData("//" + config.pingServerUrl + "/tag_err?" +
-//          msg, null, "GET");
-//      }
-//    }
-  };
-
-  /*session*/
-
   /**
    * Function send deduplicated information ping to servers.
    * @param {Object} container
@@ -120,52 +136,40 @@
    */
   Ping.prototype.sendDedupe = function (container, tags) {
     var config = container.config;
-    var pingString = "c=" + config.clientId + "&" +
-      "p=" + container.getContainerId() + "&" +
-      "l=" + (config.tellLoadTimesProbability) + "&" +
-      "pv=" + q.cookie.PageView.update() + "&" +
-      "dd=";
-
-    var pingStrings = [];
+    var msgObject = prepareContainerMsg(container, config);
+    var pingURL = config.pingServerUrl;
+    var tagLogs = msgObject.tags;
 
     for (var i = 0; i < tags.length; i++) {
       var tag = tags[i];
-      var loaderId = Ping.getPingID(tag);
+      var tagId = Ping.getPingID(tag);
+      var tagMsg = {};
 
-      if (loaderId === undefined) {
+      if (tagId === undefined) {
         log.WARN("sendDedupe: tag `" + tag.config.name +/*L*/
                 "` has no ID assigned! Deduplicaton time load " +/*L*/
                 "will not be sent.");/*L*/
       } else if (!tag.dedupePingSent) {
-        pingStrings.push(loaderId);
+        tagMsg.tagId = "" + tagId;
+        tagMsg.fired = false;
+        tagMsg.loadTime = 0;
+        tagLogs.push(tagMsg);
         tag.dedupePingSent = true;
       }
     }
-
-    if (pingStrings.length > 0 && config.pingServerUrl) {
-      pingString += encodeURIComponent("[" + pingStrings.join(',') + "]");
-      q.html.PostData("//" + config.pingServerUrl + 
-        "/tag2?" + pingString, null, "GET");
+    
+    if (pingURL && (tagLogs.length > 0 || msgObject.containerLoad)) {
+      var pingString = JSON.stringify(msgObject);
+      var url = "//" + pingURL;
+      log.FINE("send: sending pings " + url);/*L*/
+      q.html.PostData(url, pingString, "POST", appJsonCT);
     } else {
-      if (!pingStrings.length) {
+      if (!tagLogs.length) {
         log.FINE("sendDedupe: no dedupe pings to sent");/*L*/
       }
-      if (!config.pingServerUrl) {
-        log.WARN("sendDedupe: config.pingServerUrl is unset!");/*L*/
+      if (!pingURL) {
+        log.WARN("sendDedupe: pingURL is unset!");/*L*/
       }
-    }
-  };
-  
-  Ping.getPingID = function (tag) {
-    if (tag.config.id) {
-      return tag.config.id;
-    }
-    
-    var idx = tag.PACKAGE_NAME.lastIndexOf(".");
-    if (idx !== -1) {
-      return tag.PACKAGE_NAME.substring(idx + 1);
-    } else {
-      return tag.PACKAGE_NAME;
     }
   };
   

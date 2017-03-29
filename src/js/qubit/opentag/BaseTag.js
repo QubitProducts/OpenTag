@@ -202,6 +202,9 @@
      * @property {Boolean}
      */
     this.pingSent = false;
+    this.oldPingSent = false;
+    this.dedupePingSent = false;
+    this.oldDedupePingSent = false;
     
     this.reRunCounter = 0;
     
@@ -1173,8 +1176,10 @@
     BaseTag.SUPER.prototype.reset.call(this);
     var u;
     this.filtersPassed = u;
-    this.dedupePingSent = u;
+    this.dedupePingSent = false;
+    this.oldDedupePingSent = false;
     this.pingSent = false;
+    this.oldPingSent = false;
     this._runOnceIfFiltersPassTriggered = u;
     this.filtersRunTriggered = u;
     this._runner = u;

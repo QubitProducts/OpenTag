@@ -3,7 +3,7 @@
 //= require <html/html>
 //= require <html/FileLoader>
 
-q.html.PostData = function (url, data, type) {
+q.html.PostData = function (url, data, type, contentType) {
 
   var _post, agent, isIe, isIe9, isOldIe, fullUrl, loaded, 
     retry, retryDelay, retryCount;
@@ -57,12 +57,19 @@ q.html.PostData = function (url, data, type) {
       } catch (e2) {
 
       }
+      
       if (xhr.setRequestHeader) {
-        xhr.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
+        if (contentType) {
+          xhr.setRequestHeader("Content-Type", contentType);
+        } else {
+          xhr.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
+        }
       }
+      
       xhr.onload = function () {
         loaded = true;
       };
+      
       xhr.onreadystatechange = function () {};
       xhr.ontimeout = function () {};
       xhr.onerror = function () {};
@@ -82,7 +89,7 @@ q.html.PostData = function (url, data, type) {
       } catch (e) {
       }
     }
-    retry();
+//    retry();
   };
   if (isOldIe) {
     q.html.fileLoader.load(fullUrl);

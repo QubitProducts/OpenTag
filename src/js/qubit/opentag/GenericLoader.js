@@ -220,7 +220,7 @@
        * - unset property will default to document.body
        * 
        * - Any other string value will resolve to 
-       *  `document.getElementsById(string)`
+       *  `document.getElementById(string)`
        *  
        * Way the HTML passed with `html` config property is injected is 
        * controlled by `locationPlaceHolder` property.
