@@ -103,22 +103,18 @@
    * @returns {String} cookie string or `null` if not found.
    */
   Cookie.get = function (name, notDecoded) {
-    var part = name + "=";
-    var chunks = document.cookie.split(';');
-    for (var i = 0; i < chunks.length; i++) {
-      var chunk = chunks[i];
-      while (chunk.charAt(0) === ' ') {
-        chunk = chunk.substring(1, chunk.length);
-      }
-      if (chunk.indexOf(part) === 0) {
-        var tmp = chunk.substring(part.length, chunk.length);
-        if (!notDecoded) {
-          tmp = Cookie.decode(tmp);
-        }
-        return tmp;
-      }
+    if (!document.cookie) return null
+
+    var escapedName = name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
+    var value = document.cookie.match(`(^|;)\\s*${escapedName}\\s*=\\s*([^;]+)`)
+    if (!value) return null
+
+    value = value.pop()
+    if (!notDecoded) {
+      value = Cookie.decode(value);
     }
-    return null;
+
+    return value
   };
 
   /**
