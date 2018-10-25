@@ -1,6 +1,7 @@
 //:import qubit.Define
 //:import qubit.opentag.Log
 //:import qubit.opentag.Utils
+//:import qubit.Events
 
 /*
  * TagSDK, a tag development platform
@@ -13,6 +14,7 @@
   var Utils = qubit.opentag.Utils;
   var counter = 0;
   var filters = [];
+  
   /**
    * @class qubit.opentag.filter.BaseFilter
    * 
@@ -74,9 +76,14 @@
        * Session object - can be passed via configuration.
        * @cfg {qubit.opentag.Session} [session=undefined]
        */
-      session: undefined
+      session: undefined,
+      /**
+       * @cfg {Boolean} [restartable=true] if filter is restartable
+       */
+      restartable: true
     };
-
+    
+    this.runtimeId = Utils.UUID();
     /**
      * Session object - if attached, it will be attached normally by 
      * tag instance.
@@ -96,10 +103,11 @@
 
       this.register(this);
     }
+    
+    this.events = new qubit.Events({});
   }
 
   qubit.Define.clazz("qubit.opentag.filter.BaseFilter", BaseFilter);
-
 
   /**
    * State value higher than 0 is used to distinqt delayed filters.
@@ -120,12 +128,48 @@
     PASS: -1, // positive numbers are used for timeout
     FAIL: 0
   };
-
+  
+  var RESTART_EVENT = "restart";
+  
+  BaseFilter.prototype.EVENT_TYPES = {
+    RESTART_EVENT: RESTART_EVENT
+  };
+  
+  /**
+   * Function prepares filter for restarting it - 
+   * it will succeed only if config property `restartable` is set (default true).
+   * Restart functionality is related to tag/container execution logic. 
+   * When container or tag restarts, by default it will try to restart belonging
+   * filters too. This method is used to prepare filter for the process.
+   * (by calling this method).
+   * @returns {undefined}
+   */
+  BaseFilter.prototype.prepareForRestart = function () {
+    if (this.config.restartable) {
+      this.events.call(RESTART_EVENT, this);
+      this.reset();
+    }
+  };
+    
+  /**
+   * Multiple event handling method.
+   * 
+   * Fires on restart being prepared..
+   * @event before before event.
+   * @param {Function} callback function to be executed the BEFORE_EVENT 
+   *                             event fires. Takes filter reference as 
+   *                             argument.
+   */
+  BaseFilter.prototype.onRestart = function (callback) {
+    this.events.on(RESTART_EVENT, callback);
+  };
+  
   /**
    * Function will reset object to initial state (disabled state will be turned
    *  to enabled).
    */
   BaseFilter.prototype.reset = function () {
+    this.runtimeId = Utils.UUID();
     this.enable();
   };
 

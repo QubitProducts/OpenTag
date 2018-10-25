@@ -667,7 +667,7 @@
    * @returns {Number} objects position in array,
    *  if doesnt exist it will return -1. It means that object was appended at 
    *  the end of array.
-   * if exists it will return its popsition.
+   * if exists it will return its position.
    */
   Utils.addToArrayIfNotExist = function (array, obj, equals) {
     var i = 0, exists = false;
@@ -697,16 +697,26 @@
    * if exists it will return its popsition.
    */
   Utils.indexInArray = function (array, obj) {
-    var i = 0, exists = false;
-    for (; i < array.length; i++) {
+    for (var i = 0; i < array.length; i++) {
       if (array[i] === obj) {
-        exists = true;
-        break;
+        return i;
       }
     }
-    return exists ? i : -1;
+    return -1;
   };
-  
+
+  /**
+   * Function checks if obj exists in array.
+   */
+  Utils.existsInArray = function (array, obj) {
+    for (var i = 0; i < array.length; i++) {
+      if (array[i] === obj) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   /*
    * Local function taking as argument and array and a string that will be  
    * removed from the array if it equals (===) to any of array items.
@@ -832,6 +842,16 @@
         }
       }
     }
+  };
+  
+  var rndSeed = Math.floor(Math.random() * 1000000000000);
+  
+  Utils.UUID = function () {
+    if (!global.__qubit_uuid_cnt_43567bdfhgtb4vt5yeh978__) {
+      global.__qubit_uuid_cnt_43567bdfhgtb4vt5yeh978__ = new Date().valueOf();
+    }
+    
+    return rndSeed + "." + (++global.__qubit_uuid_cnt_43567bdfhgtb4vt5yeh978__);
   };
   
   /**

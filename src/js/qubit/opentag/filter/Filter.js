@@ -101,15 +101,17 @@
   /**
    * Custom starter function for session filter.
    * Takes 3 arguments in the order:
-   *  1) `session` the session object
+   *  1) `session` the session object.
    *  2) `ready` the ready callback that runs the tag, note: it will run the tag
    *  directly.
    *  3) `tag` tag reference object.
    * This function can be overrided by `config.customStarter` function.
    * 
-   * @param {qubit.opentag.Session} session
-   * @param {Function} ready
-   * @param {qubit.opentag.BaseTag} tag
+   * @param {qubit.opentag.Session} session - the session object.
+   * @param {Function} ready - the ready callback that runs the tag, note: 
+   *                            it will run the tag
+   *  directly.
+   * @param {qubit.opentag.BaseTag} tag - reference to executing tag.
    */
   Filter.prototype.customStarter = function (session, ready, tag) {
     ready(false);
@@ -195,8 +197,14 @@
       if (!this._starterWasRun) {
         // enter "customStarter", only once
         this._starterWasRun = true;
+        // this step will enable callback to be cancelled easily.
+        var recallUUID = this.runtimeId;
         // prepare callback
         var callback = function (rerun) {
+          if (recallUUID !== this.runtimeId) {
+            this.log.FINE("Filter was cancelled (reset?)."); /*L*/
+            return;
+          }
           // mark starterExecuted on filter so any next tags will be fired immediately,
           // rather than queued for execution.
           this.reRun = rerun;
@@ -276,8 +284,8 @@
    * Reset function.
    */
   Filter.prototype.reset = function () {
-    this._matchState = undefined;
     Filter.SUPER.prototype.reset.call(this);
+    this._matchState = undefined;
     this._starterWasRun = undefined;
     this.starterExecuted = undefined;
     this.tagsToRun = [];

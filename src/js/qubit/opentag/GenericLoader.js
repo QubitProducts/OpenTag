@@ -23,9 +23,6 @@
   var nameCounter = 0;
   var Log = qubit.opentag.Log;
 
-  var AFTER_EVENT = "after";
-  var BEFORE_EVENT = "before";
-
   /*
    * @TODO - extract lower generic class for a script loader so it is better 
    * separated by logic.
@@ -248,8 +245,28 @@
        * or build system.
        * @cfg {Boolean} [loadDependenciesOnLoad=false]
        */
-      loadDependenciesOnLoad: false
+      loadDependenciesOnLoad: false,
+      /**
+       * @cfg {Boolean} [restartable=true] Indicates if tag is restartable.
+       */
+      restartable: true
     };
+    
+    /*
+     * Restart counter.
+     * @property {Number} 
+     */
+    this.restartCounter = 0;
+    /*
+     * If tag is cancelled (cancelled tag will not be re-fired!).
+     * @property {Boolean} 
+     */
+    this.cancelled = false;
+    /*
+     * Unique runtime ID.
+     * @property {String} 
+     */
+    this.runtimeId = Utils.UUID();
     
     /**
      * If checked and usesDocumentWrite is true, tag will be instructed to 
@@ -324,6 +341,16 @@
   
   qubit.Define.clazz("qubit.opentag.GenericLoader", GenericLoader);
   
+  var AFTER_EVENT = "after";
+  var BEFORE_EVENT = "before";
+  var RESTART_EVENT = "restart";
+  
+  GenericLoader.prototype.EVENT_TYPES = {
+    AFTER_EVENT: AFTER_EVENT,
+    BEFORE_EVENT: BEFORE_EVENT,
+    RESTART_EVENT: RESTART_EVENT
+  };
+  
   /**
    * @event Empty on init event.
    * Run at the end of constructors body.
@@ -338,6 +365,11 @@
    */
   GenericLoader.prototype.LOADING_TIMEOUT = 5 * 1000;
   
+  /**
+   * HTML getter for this tag, html can be passed various ways - this getter
+   * returns what is used by tag.
+   * @returns {String} HTML template in use with this tag..
+   */
   GenericLoader.prototype.getHtml = function () {
     if (this.config.html) {
       return this.config.html;
@@ -710,9 +742,17 @@
     return true;
   };
 
-  GenericLoader.prototype._setTimeout = function (fun, time) {
+  GenericLoader.prototype._setTimeout = function (cb, time) {
     this._wasTimed = new Date().valueOf();
-    return Timed.setTimeout(fun, time);
+    var _runtimeId = this.runtimeId;
+    
+    var cbWrapped = function () {
+      if (this.runtimeId === _runtimeId) {
+        return cb();
+      }
+    }.bind(this);
+    
+    return Timed.setTimeout(cbWrapped, time);
   };
 
   /**
@@ -739,10 +779,6 @@
    * execution block.
    */
   GenericLoader.prototype.waitForDependenciesAndExecute = function () {
-    if (this.cancelled) {
-      this._handleCancel();
-      return;
-    }
     if (this.loadedDependencies) {
       // dependencies ready
       this.execute();      
@@ -1136,7 +1172,7 @@
    * not be resumed. You need to reset and re-ru tag again.
    */
   GenericLoader.prototype.unCancel = function () {
-    this.cancelled = undefined;
+    this.cancelled = false;
   };
   
   /**
@@ -1819,6 +1855,50 @@
   };
   
   /**
+   * @event
+   * Multiple event handling method.
+   * 
+   * Fires when tag restart process is being prepared. 
+   * Although tag starting can be delegated for later, normally if tag is
+   * restarted through a container, this even is fired just before restart..
+   * 
+   * @event before before event.
+   * @param {Function} callback function to be executed the BEFORE_EVENT 
+   *                             event fires. Takes tag reference as argument.
+   */
+  GenericLoader.prototype.onRestart = function (callback) {
+    this.events.on(RESTART_EVENT, callback);
+  };
+  
+  /**
+   * Restart function. This method will trigger reset process and only if tag
+   * config property `restartable` is set. See `this.restartCounter` to meassure
+   * how many restarts was done for this tag.
+   * @returns {undefined}
+   */
+  GenericLoader.prototype.prepareForRestart = function () {
+    if (this.config.restartable) {
+      var tmp = this.restartCounter + 1;
+      this.events.call(RESTART_EVENT, this);
+      this.reset();
+      this.restartCounter = tmp;
+    }
+  };
+  
+  /**
+   * Restart function. This method will trigger reset process and only if tag
+   * config property `restartable` is set. See `this.restartCounter` for 
+   * meassures of how many restarts were made for this tag.
+   * @returns {undefined}
+   */
+  GenericLoader.prototype.restart = function () {
+    if (this.config.restartable) {
+      this.prepareForRestart();
+      this.run();
+    }
+  };
+  
+  /**
    * Reset method. Brings this object to initial state.
    * Reset will keep logging information.
    */
@@ -1850,11 +1930,13 @@
     this.urlsLoaded = 0;
     this.waitForDependenciesFinished = u;
     this.isRunning = u;
-    this._lastRun = u;
+    this.lastRun = u;
     this.cancelled = u;
     this._beforeEntered = u;
     this.awaitingDependencies = u;
     this.timeoutCountdownStart = u;
+    this.restartCounter = 0;
+    this.runtimeId = Utils.UUID();
     this.addState("INITIAL");
   };
   

@@ -2,44 +2,44 @@
 
 /*
  * TagSDK, a tag development platform
- * Copyright 2014, Qubit Group
+ * Copyright 2013-2018, Qubit Group
  * http://opentag.qubitproducts.com
  * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
 
 (function () {
-  var cookieAlphabet = 
-          "abcdefghijklmnopqrstuvwxyz" + "0123456789" +
-          "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "*!-#$&+()@" +
-          "'%./:<>?[" + "\"]^_`{|}~" +
-          "\\" +
-          ";=";
-  
+  var cookieAlphabet =
+    "abcdefghijklmnopqrstuvwxyz" + "0123456789" +
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "*!-#$&+()@" +
+    "'%./:<>?[" + "\"]^_`{|}~" +
+    "\\" +
+    ";=";
+
   var cookieAlphabetMap = {};
   for (var i = 0; i < cookieAlphabet.length; i++) {
     cookieAlphabetMap[cookieAlphabet.charAt(i)] = i;
   }
-  
+
   /**
    * @class qubit.Cookie
-   * 
+   *
    * Cookie class with static methods to use for setting and getting and
    * removing cookie.
-   * 
+   *
    * @param {Object} config
    */
   function Cookie(config) {
   }
 
   qubit.Define.clazz("qubit.Cookie", Cookie);
-  
+
   Cookie.cookieAlphabet = cookieAlphabet;
   Cookie.cookieAlphabetMap = cookieAlphabetMap;
-  
+
   /**
    * @static
    * Default decoding method for cookie. Defaulting to `decodeURIComponent`.
-   * 
+   *
    * @param {String} string string to decode
    * @returns {String} decoded string
    */
@@ -49,18 +49,18 @@
   /**
    * @static
    * Default encoding method for cookie. Defaulting to `encodeURIComponent`.
-   * 
+   *
    * @param {String} string string to encode
    * @returns {String} encoded string
    */
   Cookie.encode = function (string) {
     return escape(string);
   };
-  
+
   /**
    * @static
    * Cookie setter function.
-   * 
+   *
    * @param {String} name cookie name
    * @param {String} value cookie string to be set
    * @param {Number} days days to expire
@@ -77,12 +77,12 @@
     } else {
       expires = "";
     }
-    
+
     if (!notEncoded) {
       name = Cookie.encode(name);
       value = Cookie.encode(value);
     }
-    
+
     var cookie = name + "=" + value + expires + "; path=/;";
 
     if (domain) {
@@ -92,14 +92,70 @@
     document.cookie = cookie;
   };
 
+  var CHUNKS_CACHED;
+  var COOKIE_CACHE = {};
+
+  Cookie.resetCache = function () {
+    CHUNKS_CACHED = null;
+    COOKIE_CACHE = {};
+  };
+
   /**
-   * @static
-   * Get cookie function.
+   * Same as `Cookie.get()` function but values return are from cache made
+   * on first run of this function. Unless `Cookie.resetCache()` is run this 
+   * method will return cached values. Its very efficient to use it for 
+   * repeatetive cookie reads - on mobile devices cookie reads are expensive.
    * 
    * @param {String} name cookie name
    * @param {Boolean} notDecoded should NOT cookie be decoded using default
    *  method. If true, cookie will not be decoded.
-   * 
+   *
+   * @returns {String} cookie string or `null` if not found.
+   */
+  Cookie.getCached = function (name, notDecoded) {
+    var cachedName = name + "=" + (!!notDecoded);
+
+    if (COOKIE_CACHE[cachedName] !== undefined) {
+      return COOKIE_CACHE[cachedName];
+    }
+
+    var part = name + "=";
+    if (!CHUNKS_CACHED) {
+      CHUNKS_CACHED = document.cookie.split(';');
+    }
+
+    for (var i = 0; i < CHUNKS_CACHED.length; i++) {
+      var chunk = CHUNKS_CACHED[i];
+
+      while (chunk.charAt(0) === ' ') {
+        chunk = chunk.substring(1, chunk.length);
+      }
+
+      if (chunk.indexOf(part) === 0) {
+        var tmp = chunk.substring(part.length, chunk.length);
+        if (!notDecoded) {
+          tmp = Cookie.decode(tmp);
+        }
+
+        COOKIE_CACHE[cachedName] = tmp;
+
+        return tmp;
+      }
+    }
+
+    COOKIE_CACHE[cachedName] = null;
+
+    return null;
+  };
+
+  /**
+   * @static
+   * Get cookie function.
+   *
+   * @param {String} name cookie name
+   * @param {Boolean} notDecoded should NOT cookie be decoded using default
+   *  method. If true, cookie will not be decoded.
+   *
    * @returns {String} cookie string or `null` if not found.
    */
   Cookie.get = function (name, notDecoded) {
@@ -124,11 +180,11 @@
   /**
    * @static
    * Gets all of cookies for given name.
-   * 
+   *
    * @param {String} name cookie(s) name
    * @param {Boolean} decoded should cookies be decoded using default method.
-   * 
-   * @returns {Array} cookies strings array, if there is no cookies, 
+   *
+   * @returns {Array} cookies strings array, if there is no cookies,
    *    empty array is returned.
    */
   Cookie.getAllForName = function (name, decoded) {
@@ -180,7 +236,7 @@
   /**
    * @static
    * Clearing cookie function.
-   * 
+   *
    * @param {String} name cookie name
    * @param {String} domain cookie domain
    */

@@ -14,6 +14,8 @@
 //:import qubit.opentag.pagevariable.DOMText
 //:import qubit.opentag.pagevariable.Cookie
 //:import qubit.opentag.pagevariable.URLQuery
+//:import qubit.opentag.pagevariable.UniversalVariable
+//:import qubit.opentag.pagevariable.QProtocolVariable
 
 (function () {
   var Utils = qubit.opentag.Utils;

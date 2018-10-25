@@ -1,3 +1,4 @@
+//:import GLOBAL
 //:import qubit.Define
 //:import qubit.Cookie
 //:import qubit.opentag.Utils
@@ -7,6 +8,8 @@
 //:import qubit.opentag.pagevariable.BaseVariable
 //:import qubit.opentag.TagHelper
 //:import qubit.opentag.GenericLoader
+
+/* global GLOBAL, EMPTY_FUN */
 
 /*
  * TagSDK, a tag development platform
@@ -46,7 +49,7 @@
    * [LibraryTag](#!/api/qubit.opentag.LibraryTag) will be used.
    * 
    * @param {Object} config Please see properties for configuration options.
-   *  Each property can be set at initialization time via config object.
+   *  Each property can be set at initialisation time via config object.
    */
   function BaseTag(config) {
     
@@ -163,6 +166,13 @@
     this.namedVariables = {};
     
     /**
+     * @protected
+     * Tag runtime markers space.
+     * @property Object
+     */
+    this._runtimeMarkers = {};
+    
+    /**
      * Parameters array. Parasmeters are a plain objects containing:
      * 
      * `name` property, indicating parameter's name.
@@ -193,6 +203,15 @@
      * @property {qubit.opentag.Session}
      */
     this.session = null;
+    
+    /**
+     * @readonly
+     * Container owning this tag. This reference is managed by container 
+     * instance and should never been  changed directly.
+     * To unregister tag from container - use container api.
+     * @property Array of {qubit.opentag.Container}
+     */
+    this.owningContainer = null;
     
     /**
      * Idicates if tag stats has been submitted.
@@ -278,7 +297,7 @@
       this.lock();
     }
     
-//    this.log.FINEST("Initializing variables.");/*L*/
+//    this.log.FINEST("Initialising variables.");/*L*/
 //    this.initPageVariablesForParameters();
   };
   
@@ -351,6 +370,7 @@
     }
     
     this.resolveAllDynamicData();
+    this.runPostInitialisationSection();
     
     var params = this.parameters;
     
@@ -479,7 +499,11 @@
       throw "Tag is destroyed.";
     }
     
+    // @todo this could be wrapped into one function and do 
+    // single check with marker if was run.
     this.resolveAllDynamicData();
+    this.runPostInitialisationSection();
+
     var state = this.filtersState(true);
     this.addState("FILTER_ACTIVE");
     
@@ -638,7 +662,7 @@
       stack.push("Awaiting callback to run this tag. Not pooling.");
     }
     if (current & s.STARTED) {
-      stack.push("Tag is initialized and loading has been started.");
+      stack.push("Tag is initialised and loading has been started.");
     }
     if (current & s.LOADING_DEPENDENCIES) {
       stack.push("Dependencies are being loaded.");
@@ -684,6 +708,14 @@
    * @event onTagInit
    */
   BaseTag.prototype.onTagInit = EMPTY_FUN;
+  
+  /**
+   * This property is reserved by opentag repository scheme and may be replaced 
+   * without warning. It is used only by Opentag tag manager and stores 
+   * post initialisation code block (if set).
+   * Opentag's tag  initialisation block is stored here and useful in debugging.
+   */
+  BaseTag.prototype.postInitialisationSection = EMPTY_FUN;
   /**
    * State being set global event.
    * @static
@@ -838,6 +870,7 @@
    * Function adding variables map with namespace provided - worker function.
    * 
    * @param {type} map
+   * @param {type} ns
    * @returns {undefined}
    */
   BaseTag.prototype._addVariablesMap = function (map, ns) {
@@ -1343,7 +1376,7 @@
   
 //  /**
 //   * @protected
-//   * Function used to validate and initialize parameters and any variables 
+//   * Function used to validate and initialise parameters and any variables 
 //   * assigned. If variables were passed as plain objects, they will be converted
 //   * to BaseVariable instances.
 //   * It is always run at constructor time.
@@ -1531,9 +1564,9 @@
    */
   BaseTag.prototype.cookieSaysToRunEvenIfDisabled = function () {
     var id = this._getUniqueId();
-    var ret = !!Cookie.get(cookieRunAll);
+    var ret = !!Cookie.getCached(cookieRunAll);
     if (!ret) {
-      ret = !!Cookie.get(forceCookiePrefix + id);
+      ret = !!Cookie.getCached(forceCookiePrefix + id);
     }
     return ret;
   };
@@ -1546,6 +1579,7 @@
   BaseTag.prototype.setCookieForcingTagToRun = function () {
     var id = this._getUniqueId();
     Cookie.set(forceCookiePrefix + id, "true");
+    Cookie.resetCache();
   };
   
   /**
@@ -1555,6 +1589,7 @@
    */
   BaseTag.setCookieForcingTagsToRun = function () {
     Cookie.set(cookieRunAll, "true");
+    Cookie.resetCache();
   };
   
   /**
@@ -1563,6 +1598,7 @@
   BaseTag.prototype.setCookieToDisable = function () {
     var id = this._getUniqueId();
     Cookie.set(disableCookiePrefix + id, "true");
+    Cookie.resetCache();
   };
   
   /**
@@ -1571,6 +1607,7 @@
   BaseTag.prototype.rmCookieToDisable = function () {
     var id = this._getUniqueId();
     Cookie.rm(disableCookiePrefix + id);
+    Cookie.resetCache();
   };
   
   /**
@@ -1579,7 +1616,7 @@
    */
   BaseTag.prototype.disabledByCookie = function () {
     var id = this._getUniqueId();
-    return !!Cookie.get(disableCookiePrefix + id);
+    return !!Cookie.getCached(disableCookiePrefix + id);
   };
   
   /**
@@ -1588,6 +1625,7 @@
    */
   BaseTag.rmCookieForcingTagsToRun = function () {
     Cookie.rm(cookieRunAll);
+    Cookie.resetCache();
   };
   
   /**
@@ -1597,6 +1635,7 @@
   BaseTag.prototype.rmCookieForcingTagToRun = function () {
     var id = this._getUniqueId();
     Cookie.rm(forceCookiePrefix + id);
+    Cookie.resetCache();
   };
   
   /**
@@ -1604,6 +1643,7 @@
    */
   BaseTag.rmAllDisablingCookies = function () {
     Utils.rmCookiesMatching(disableCookiePrefix);
+    Cookie.resetCache();
   };
   
   /**
@@ -1723,4 +1763,55 @@
     this.attachVariablesChangedListeners();
   };
   
+  /**
+   * Prepare for restart function.
+   * This metod will also prepare restart filters by default.
+   * @param {Boolean} noFilters use to exclude filters from restart process
+   * @returns {undefined}
+   */
+  BaseTag.prototype.prepareForRestart = function (noFilters) {
+    if (this.config.restartable) {
+      // generic loader has no filter logic!
+      BaseTag.SUPER.prototype.prepareForRestart.call(this, false);
+      if (!noFilters) {
+        this.log.FINE("Restarting filters."); /*L*/
+        var filters = this.getFilters();
+        for (var i = 0; i < filters.length; i++) {
+          filters[i].prepareForRestart();
+        }
+      }
+    }
+  };
+  
+  /**
+   * Restart function. This method will restart tag and only if tag
+   * config property `restartable` is set. See `this.restartCounter` for 
+   * meassures of how many restarts were made for this tag.
+   * This metod will also restart tag's filters if no argument is passed.
+   * @param {Boolean} noFilters use to exclude filters from restart process
+   * @returns {undefined}
+   */
+  BaseTag.prototype.restart = function (noFilters) {
+    if (this.config.restartable) {
+      this.prepareForRestart(noFilters);
+      this.runIfFiltersPass();
+    }
+  };
+  
+  /**
+   * Control trigger for this.postInitialisationSection();
+   * @returns {undefined}
+   */
+  BaseTag.prototype.runPostInitialisationSection = function () {
+    if (!this._postInitialisationRun) {
+      this._postInitialisationRun = true;
+      if (this.postInitialisationSection) {
+        try {
+          this.postInitialisationSection();
+        } catch (ex) {
+          this.log.ERROR("Tag initialisation failed!", ex); /*L*/
+        }
+      }
+    }
+  };
 }());

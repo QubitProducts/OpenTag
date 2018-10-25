@@ -1,8 +1,8 @@
-/* 
- * To change this license header, choose License Headers in 
- * Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+/*
+ * Opentag, a tag deployment platform
+ * Copyright 2013-2018, Qubit Group
+ * http://opentag.qubitproducts.com
+ * Author: Peter Fronc <peter.fronc@qubitdigital.com>
  */
 
 //:import GLOBAL
@@ -12,26 +12,26 @@
 (function () {
   var Define = qubit.Define;
   var Utils = qubit.opentag.Utils;
-  
+
   /**
    * @class qubit.Events
    * Simple events manager.
-   * 
+   *
    * @param {Object} config empty object.
    */
   function Events(config) {
     this.log = new qubit.opentag.Log("Events -> ");/*L*/
     this.calls = {};
   }
-  
+
   /**
    * Simple events adding function. IT pushes a function to named
-   * execution array. If function already is in the array, 
-   * it has no effect. To access array, use 'this.calls' on 
+   * execution array. If function already is in the array,
+   * it has no effect. To access array, use 'this.calls' on
    * this object.
    * @param {String} name simple name for event.
    * @param {Function} call
-   * @returns {Number} index in array of events for the name. 
+   * @returns {Number} index in array of events for the name.
    *        -1 if added at end of queue.
    */
   Events.prototype.on = function (name, call) {
@@ -40,7 +40,7 @@
     }
     return Utils.addToArrayIfNotExist(this.calls[name], call);
   };
-  
+
   /**
    * Function will cause triggering event for given name.
    * @param {String} name Event name
@@ -71,7 +71,7 @@
     }
     return null;
   };
-  
+
   /**
    * Removes all event handlers === to call of any type from this object.
    * @param {Function} call
@@ -86,14 +86,14 @@
     }
     return total;
   };
-  
+
   /**
    * Removes all events of any type from this stack.
    */
   Events.prototype.clear = function () {
     this.calls = {};
   };
-  
+
   Define.clazz("qubit.Events", Events);
 })();
 

@@ -6,6 +6,8 @@
 //:import qubit.Cookie
 //:import html.UVListener
 //:import qubit.Define
+//:import qubit.opentag.Container
+//:import qubit.opentag.BaseTag
 
 (function () {
   var log = new qubit.opentag.Log("Main -> ");/*L*/
@@ -166,6 +168,7 @@
           
           if (needDebugModeButNotInDebug) {
             container.destroy(true);
+            pruneContainerPackage(container);
             Main.loadDebugVersion(container);
           } else {
             if (!GLOBAL.QUBIT_OPENTAG_STOP_MAIN_EXECUTION) {
@@ -193,8 +196,19 @@
     }
   };
 
+  // function prunes container and everything in it.
+  function pruneContainerPackage(container) {
+    var name = container.PACKAGE_NAME.split(".");
+    name = name[name.length - 1];
+    
+    var pkg = Utils.getParentObject(container.PACKAGE_NAME);
+    pkg[name] = null;
+    
+    delete pkg[name];
+  }
+
   function getClientId(container) {
-    var parent = qubit.opentag.Utils.getParentObject(container.PACKAGE_NAME);
+    var parent = Utils.getParentObject(container.PACKAGE_NAME);
     var cfg = parent.ClientConfig;
     if (cfg && cfg.clientId) {
       return cfg.clientId;

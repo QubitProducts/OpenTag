@@ -11,17 +11,17 @@
 (function () {
   var LibraryTag = qubit.opentag.LibraryTag;
   var Define = qubit.Define;
-  
+
   /**
    * @class qubit.Quick
    * @singleton
-   * 
+   *
    * #Quick is a quick reference for often used utilities.
-   * 
+   *
    */
   function Quick() {
   }
-  
+
   /**
    * Quick `qubit.opentag.LibraryTag.define(...)` shortcut.
    * @return {undefined}
@@ -29,7 +29,7 @@
   Quick.library = function () {
     return LibraryTag.define.apply(LibraryTag, arguments);
   };
-  
+
   /**
    * Quick `qubit.opentag.LibraryTag.getLibraryByClasspath(...)` shortcut.
    * @return {undefined}
@@ -39,6 +39,6 @@
       LibraryTag.getLibraryByClasspath,
       arguments);
   };
-  
+
   Define.namespace("qubit.Quick", Quick);
 }());

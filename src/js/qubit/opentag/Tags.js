@@ -3,6 +3,8 @@
 //:import qubit.opentag.BaseTag
 //:import qubit.opentag.Utils
 //:import qubit.opentag.filter.BaseFilter
+//:import qubit.opentag.CustomTag
+//:import qubit.opentag.LibraryTag
 
 (function () {
   var log = new qubit.opentag.Log("Tags -> ");/*L*/
